@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#fff4d8">
+<meta name="description" content="A colorful live Twitch chat trivia knockout game.">
+<title>CHATillionaire | The Chat Quiz Show</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <a class="brand" href="." aria-label="CHATillionaire home">
+        <span class="brand-mark"><span>★</span></span>
+        <span class="brand-copy"><strong>CHATillionaire</strong><small>the chat quiz show</small></span>
+      </a>
+      <div id="conn-status" class="conn-status conn-status--off">
+        <span class="dot"></span><span id="conn-label">Chat is snoozing</span>
+      </div>
+    </header>
+
+    <main id="screen" class="screen"></main>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/gh/tmijs/tmi.js/dist/tmi.min.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/twitch.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
