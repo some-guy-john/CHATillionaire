@@ -4,33 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#fff4d8">
-<meta name="description" content="A colorful multiplayer trivia knockout game.">
-<title>CHATillionaire | The Chat Quiz Show</title>
+<meta name="description" content="Join a live CHATillionaire quiz room.">
+<title>Join CHATillionaire</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap viewer-wrap">
     <header class="topbar">
       <a class="brand" href="." aria-label="CHATillionaire home">
         <span class="brand-mark"><span>★</span></span>
-        <span class="brand-copy"><strong>CHATillionaire</strong><small>the chat quiz show</small></span>
+        <span class="brand-copy"><strong>CHATillionaire</strong><small>join the quiz show</small></span>
       </a>
-      <div id="conn-status" class="conn-status conn-status--off">
-        <span class="dot"></span><span id="conn-label">Chat is snoozing</span>
-      </div>
+      <div id="join-status" class="conn-status conn-status--off"><span class="dot"></span><span id="join-status-label">Finding room</span></div>
     </header>
-
-    <main id="screen" class="screen"></main>
+    <main id="join-screen" class="screen"></main>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js"></script>
-<script src="js/supabase-client.js"></script>
-<script src="js/sfx.js"></script>
-<script src="js/game.js"></script>
-<script src="js/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/join.js"></script>
 </body>
 </html>

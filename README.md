@@ -1,9 +1,8 @@
-# Chat millionaire knockout
+# CHATillionaire
 
-A free, no-backend Twitch chat trivia game. Chat votes A/B/C/D directly in your
-Twitch chat, one wrong or missed answer eliminates you, difficulty climbs each
-round, last player standing (highest score) wins. Everything runs in your own
-browser tab — no login, no server, no hosting cost.
+A free multiplayer trivia knockout game. Viewers join from their own phones,
+answer privately, and watch the host page run the colorful reveal. One wrong or
+missed answer eliminates you, and the last player standing wins.
 
 ## Run it locally
 
@@ -23,25 +22,33 @@ python -m http.server 8080
 
 Then open the printed local URL in your browser.
 
+## Supabase setup
+
+1. Create a free Supabase project and enable **Authentication → Providers →
+   Anonymous sign-ins**.
+2. Open **SQL Editor**, paste `supabase/schema.sql`, and run it.
+3. The public project URL and publishable key are in `js/config.js`. The
+   publishable key is safe to ship in a static frontend; never put a secret or
+   `service_role` key there.
+
 ## Using it on stream
 
-1. Open the page, enter your Twitch channel name, then click **Let's play!**.
-   This connects anonymously and read-only — no login required. The host does
-   not join automatically; anyone who wants to play joins through chat.
-2. Put the browser tab in OBS as a **Window Capture** or **Browser Source**
-   pointed at the same local URL, or just screen-share the tab.
-3. Chat types `!join` during the lobby to enter. Click **Start game** when
-   you're ready.
-4. Each round, chat votes by typing `A`, `B`, `C`, `D` (or `1`-`4`).
-   The live roster shows who is still in and who has locked in a vote without
-   exposing their choice. The timer starts at 30 seconds by default and gets a
-   little spicy once half of the remaining players
-   have voted, and you can hit **Reveal it!** to end voting early.
-5. When voting ends, the answer cards reveal in a randomized fake-out sequence.
-   Wrong answers turn red, the correct answer is always the final reveal, and
-   vote counts plus playful player reactions appear after the reveal. Wrong or
-   missed answers eliminate a player. Play continues until the rounds run out;
-   if everyone is eliminated, the game ends early.
+1. Open `index.html` through a local server or the GitHub Pages URL and click
+   **Make a room!**.
+2. Copy the generated player link and post it in chat. Viewers open the link,
+   choose a nickname, and answer from their own device.
+3. Put the host page in OBS as a **Window Capture** or **Browser Source**. The
+   host page owns the colorful reveal; viewer pages tell players to watch the
+   stream for the result.
+4. The lobby waits up to five minutes. As soon as player two joins, a 30-second
+   countdown starts. If only one player is present when the five-minute lobby
+   expires, the game starts solo.
+5. Questions use a 30-second timer by default. A round ends when every alive
+   player votes or when the timer runs out. The next round starts automatically
+   four seconds after the reveal.
+6. Wrong answers turn red, the correct answer is always the final reveal, and
+   the host page runs the playful voter spotlight animations. Wrong or missed
+   answers eliminate a player.
 
 ## Editing the question bank
 
@@ -76,6 +83,5 @@ No build step, no server, no cost.
 
 - Optional goofy game-show sound effects use the browser's Web Audio API and do
   not load any external audio files.
-- Game state (players, scores, current round) lives only in this browser tab.
-  Refreshing the page resets the game — click **Back to lobby** at the end of
-  a game to start a new one on the same connection instead.
+- Rooms, players, votes, and scores are synchronized through Supabase. The host
+  room is remembered in that browser so refreshing the host page can restore it.
