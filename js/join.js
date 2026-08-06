@@ -42,6 +42,13 @@ function renderError(message, retryable = true) {
   if (retryable) document.getElementById('retry-join').addEventListener('click', discoverRoom);
 }
 
+function renderKicked() {
+  currentViewKey = 'kicked';
+  joinScreen.removeAttribute('aria-busy');
+  joinScreen.innerHTML = `<div class="viewer-message"><p class="eyebrow">Room access changed</p><h1>You were kicked from this room.</h1><p class="small">Ask the streamer for a new room link if you want to play again.</p></div>`;
+  setStatus('offline', 'Kicked from room');
+}
+
 function isRetryableError(error) {
   const message = String(error?.message || '').toLowerCase();
   return !message.includes('does not exist')
@@ -108,6 +115,10 @@ async function discoverRoom() {
   try {
     const initial = await ChatSupabase.getPlayerState(roomCode);
     if (!initial?.room) throw new Error('That room does not exist.');
+    if (initial.kicked) {
+      renderKicked();
+      return;
+    }
     applySnapshot(initial, sequence);
     startPolling();
   } catch (error) {
@@ -127,6 +138,11 @@ function applySnapshot(next, sequence = ++requestSequence) {
   myVote = next.my_vote;
   outcome = next.outcome;
   selectedOption = myVote?.option_index ?? selectedOption;
+  if (next.kicked) {
+    stopPolling();
+    renderKicked();
+    return;
+  }
   pollDelay = 2000;
   setStatus('online', player ? 'You are in!' : 'Room is live!');
   joinScreen.removeAttribute('aria-busy');
@@ -145,6 +161,7 @@ function stopPolling() {
 }
 
 function schedulePoll(delay = pollDelay) {
+  if (snapshot?.kicked) return;
   if (room?.phase === 'gameover' || (!player && room?.phase !== 'lobby')) return;
   if (pollHandle) clearTimeout(pollHandle);
   pollHandle = setTimeout(poll, delay);

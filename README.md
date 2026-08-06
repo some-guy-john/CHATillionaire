@@ -37,13 +37,18 @@ Then open the printed local URL in your browser.
    publishable key is safe to ship in a static frontend; never put a secret or
    `service_role` key there.
 
+For an existing live database, run `supabase/kick-migration.sql` instead of
+rerunning the destructive full schema. It adds host kicking while preserving
+existing rooms and questions.
+
 ## Using it on stream
 
 1. Open `index.html` through a local server or the GitHub Pages URL and click
    **Make a room!**.
 2. Copy the generated player link and post it in chat. Viewers open the link,
    choose a nickname, and answer from their own device. The lobby also shows a
-   QR code for phones and a **Play on this device** link for the streamer.
+   QR code for phones and a **Play on this device** link for the streamer. The
+   host can kick players from the lobby or while voting.
 3. Put the host page in OBS as a **Window Capture** or **Browser Source**. The
    host page owns the colorful reveal; viewer pages tell players to watch the
    stream for the result.
@@ -99,6 +104,7 @@ No build step, no server, no cost.
 - **The room has no questions:** enable anonymous sign-ins, run `supabase/schema.sql`, then paste the private `supabase/questions-seed.sql` into Supabase SQL Editor.
 - **The host refreshes into setup:** the saved room was deleted or expired. Create a new room and share its new link.
 - **A player cannot join after the game starts:** viewers must join during the lobby; ask the streamer for the next room.
+- **The host kick button is missing:** run `supabase/kick-migration.sql` in Supabase SQL Editor, then refresh the host page.
 
 ## Notes
 

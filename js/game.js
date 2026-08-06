@@ -47,6 +47,7 @@ const Game = (() => {
     return {
       phase,
       room,
+      kickEnabled: remote?.kick_enabled === true,
       roomCode: room?.code || '',
       joinUrl: room ? buildJoinUrl(room.code) : '',
       players: players.map(player => ({ ...player, name: player.nickname })),
@@ -243,6 +244,22 @@ const Game = (() => {
     }
   }
 
+  async function kickPlayer(playerId) {
+    if (!room || !playerId) return;
+    stopPolling();
+    try {
+      const sequence = ++requestSequence;
+      const payload = await ChatSupabase.kickPlayer(room.id, playerId);
+      applyRemote(payload, true, sequence);
+      startPolling();
+    } catch (error) {
+      startPolling();
+      errorMessage = error.message || 'Could not kick that player. Try again.';
+      emit();
+      throw error;
+    }
+  }
+
   async function createAnotherRoom() {
     const oldRoom = room;
     stopPolling();
@@ -397,6 +414,7 @@ const Game = (() => {
     createRoom,
     restoreRoom,
     forceEndRound,
+    kickPlayer,
     createAnotherRoom,
     getState: () => state
   };

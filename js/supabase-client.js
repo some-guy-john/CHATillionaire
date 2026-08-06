@@ -89,6 +89,10 @@ const ChatSupabase = (() => {
     return rpc('finish_reveal', { p_room_id: roomId });
   }
 
+  function kickPlayer(roomId, playerId) {
+    return rpc('kick_player', { p_room_id: roomId, p_player_id: playerId });
+  }
+
   function endRoom(roomId) {
     return rpc('end_room', { p_room_id: roomId });
   }
@@ -103,6 +107,7 @@ const ChatSupabase = (() => {
     submitVote,
     forceCloseRound,
     finishReveal,
+    kickPlayer,
     endRoom
   };
 })();

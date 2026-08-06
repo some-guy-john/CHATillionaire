@@ -34,7 +34,31 @@ function setConnection(connected) {
   connLabelEl.textContent = mode === 'online' ? 'Room is live!' : mode === 'reconnecting' ? 'Reconnecting...' : mode === 'connecting' ? 'Connecting...' : 'Getting things ready';
 }
 
-function renderPlayerRoster(state, showResults = false) {
+function bindKickButtons() {
+  document.querySelectorAll('[data-kick-player]').forEach(button => {
+    button.addEventListener('click', async event => {
+      event.stopPropagation();
+      const playerName = button.dataset.playerName || 'this player';
+      if (!window.confirm(`Kick ${playerName} from the room?`)) return;
+      button.disabled = true;
+      button.textContent = '...';
+      try {
+        await Game.kickPlayer(button.dataset.kickPlayer);
+      } catch {
+        button.disabled = false;
+        button.textContent = 'Kick';
+      }
+    });
+  });
+}
+
+function kickButton(player, canKick) {
+  if (!canKick || player.is_host_player) return '';
+  const safeName = escapeHtml(player.name);
+  return `<button class="kick-player" type="button" data-kick-player="${escapeHtml(player.id)}" data-player-name="${safeName}" aria-label="Kick ${safeName}">Kick</button>`;
+}
+
+function renderPlayerRoster(state, showResults = false, canKick = false) {
   const rankedPlayers = [...state.players].sort((a, b) => (
     Number(b.alive) - Number(a.alive)
     || b.score - a.score
@@ -71,10 +95,11 @@ function renderPlayerRoster(state, showResults = false) {
     const nameMarkup = newlyEliminated || revealBonk
       ? `<span class="player-name-fx ${gagClass}" aria-label="${safeName}"><span class="name-half name-half--left" aria-hidden="true">${safeName}</span><span class="name-half name-half--right" aria-hidden="true">${safeName}</span></span>`
       : `<span class="player-name">${safeName}</span>`;
+    const kick = kickButton(player, canKick);
 
     return `<div class="player-row ${isAlive ? '' : 'player-row--out'} ${newlyEliminated || revealBonk ? 'player-row--new-out' : ''}">
       <span class="pname"><span class="avatar ${isAlive ? '' : 'dead'}">${initials(player.name)}</span>${nameMarkup}</span>
-      <span class="player-meta"><span class="player-score">${player.score} pts</span>${status}</span>
+      <span class="player-meta"><span class="player-score">${player.score} pts</span>${status}${kick}</span>
     </div>`;
   }
 
@@ -217,7 +242,7 @@ function renderLobby(state) {
     </div>
     <div class="list lobby-list" id="lobby-player-list">
       ${state.players.length
-        ? state.players.map(player => `<div class="list-row"><span class="pname"><span class="avatar">${initials(player.name)}</span><span>${escapeHtml(player.name)}</span></span><span class="pill pill--accent">ready</span></div>`).join('')
+        ? state.players.map(player => `<div class="list-row"><span class="pname"><span class="avatar">${initials(player.name)}</span><span>${escapeHtml(player.name)}</span></span><span class="lobby-player-actions"><span class="pill pill--accent">ready</span>${kickButton(player, state.kickEnabled)}</span></div>`).join('')
         : '<div class="list-row"><span class="muted">It is quiet in here... share the link!</span></div>'}
     </div>
     <div class="live-board">
@@ -227,6 +252,7 @@ function renderLobby(state) {
     </div>
   `;
   document.getElementById('copy-link').addEventListener('click', copyJoinLink);
+  bindKickButtons();
   renderJoinQr(state);
 }
 
@@ -238,8 +264,9 @@ function updateLobby(state) {
   document.getElementById('lobby-player-count').textContent = state.players.length;
   document.getElementById('lobby-time').textContent = formatSeconds(state.lobbySeconds);
   document.getElementById('lobby-player-list').innerHTML = state.players.length
-    ? state.players.map(player => `<div class="list-row"><span class="pname"><span class="avatar">${initials(player.name)}</span><span>${escapeHtml(player.name)}</span></span><span class="pill pill--accent">ready</span></div>`).join('')
+     ? state.players.map(player => `<div class="list-row"><span class="pname"><span class="avatar">${initials(player.name)}</span><span>${escapeHtml(player.name)}</span></span><span class="lobby-player-actions"><span class="pill pill--accent">ready</span>${kickButton(player, state.kickEnabled)}</span></div>`).join('')
     : '<div class="list-row"><span class="muted">It is quiet in here... share the link!</span></div>';
+  bindKickButtons();
 }
 
 function renderVoting(state) {
@@ -256,13 +283,14 @@ function renderVoting(state) {
       <div class="progress-track"><div class="progress-fill" id="host-vote-progress" style="width:${pct}%"></div></div>
       <div class="actions"><span class="small">Viewers answer on the join page</span><button id="btn-force">Reveal it!</button></div>
     </section>
-    ${renderPlayerRoster(state)}
+    ${renderPlayerRoster(state, false, state.kickEnabled)}
   </div>`;
   document.getElementById('btn-force').addEventListener('click', async event => {
     event.currentTarget.disabled = true;
     event.currentTarget.textContent = 'Closing...';
     try { await Game.forceEndRound(); } catch { event.currentTarget.disabled = false; event.currentTarget.textContent = 'Reveal it!'; }
   });
+  bindKickButtons();
 }
 
 function updateVoting(state) {
@@ -276,7 +304,10 @@ function updateVoting(state) {
   timer.classList.toggle('time-left--urgent', state.timeLeft <= 5);
   document.getElementById('host-vote-progress').style.width = `${pct}%`;
   const roster = document.getElementById('players-panel');
-  if (roster) roster.outerHTML = renderPlayerRoster(state);
+  if (roster) {
+    roster.outerHTML = renderPlayerRoster(state, false, state.kickEnabled);
+    bindKickButtons();
+  }
 }
 
 function renderReveal(state) {

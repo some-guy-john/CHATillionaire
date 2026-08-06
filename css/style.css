@@ -491,6 +491,7 @@ button:disabled { filter: grayscale(0.6); opacity: 0.48; cursor: not-allowed; }
 .list-row:last-child { border-bottom: none; }
 .pname { display: flex; align-items: center; min-width: 0; gap: 10px; }
 .pname > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lobby-player-actions { display: inline-flex; align-items: center; gap: 7px; }
 
 .avatar { display: grid; width: 34px; height: 34px; flex-shrink: 0; place-items: center; border: 2px solid var(--line); border-radius: 11px; background: var(--blue); color: var(--ink); font-family: var(--display); font-size: 12px; font-weight: 700; }
 .avatar.dead { background: var(--red); color: #fff; }
@@ -499,6 +500,9 @@ button:disabled { filter: grayscale(0.6); opacity: 0.48; cursor: not-allowed; }
 .pill--accent { background: var(--purple-light); color: var(--purple); }
 .pill--success { background: #dcfff3; color: #218b70; }
 .pill--danger { background: #ffe1df; color: #c74345; }
+.kick-player { min-height: 27px; padding: 0 7px; border-width: 2px; border-radius: 8px; box-shadow: 2px 2px 0 var(--line); font-size: 9px; }
+.kick-player:hover { box-shadow: 3px 3px 0 var(--line); }
+.player-meta .kick-player { flex-shrink: 0; }
 
 .round-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .question-heading h1 { max-width: 830px; margin-bottom: 28px; }

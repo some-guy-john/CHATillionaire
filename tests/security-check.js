@@ -20,13 +20,17 @@ if (/\.from\s*\(/.test(client)) {
 }
 
 const schema = read('supabase/schema.sql');
+const migration = read('supabase/kick-migration.sql');
 for (const required of [
   'create schema private',
   'create table if not exists private.questions',
   'create or replace function public.join_room',
   'create or replace function public.submit_vote',
   'create or replace function public.finish_reveal',
-  'revoke all on public.rooms, public.players, public.votes, public.player_round_results from public, anon, authenticated',
+  'create or replace function public.kick_player',
+  'create table if not exists public.kicked_players',
+  "'kick_enabled', true",
+  'revoke all on public.rooms, public.players, public.kicked_players, public.votes, public.player_round_results from public, anon, authenticated',
   'revoke usage on schema private from public, anon, authenticated'
 ]) {
   if (!schema.includes(required)) fail(`Schema is missing: ${required}`);
@@ -50,6 +54,19 @@ if (!schema.includes('public.create_room(integer, integer, boolean, boolean, uui
 }
 if (!schema.includes('create or replace function public.join_room(') || !schema.includes('p_host_join boolean')) {
   fail('Explicit host player join flag is missing.');
+}
+if (!schema.includes('grant execute on function public.kick_player(uuid, uuid) to authenticated')) {
+  fail('Host kick RPC is not granted to authenticated users.');
+}
+if (!schema.includes('You were kicked from this room.')) {
+  fail('Kicked players are not blocked from rejoining.');
+}
+for (const required of [
+  'create table if not exists public.kicked_players',
+  'create or replace function public.kick_player',
+  'grant execute on function public.kick_player(uuid, uuid) to authenticated'
+]) {
+  if (!migration.includes(required)) fail(`Kick migration is missing: ${required}`);
 }
 
 console.log('Security regression checks passed.');

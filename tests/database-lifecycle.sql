@@ -13,7 +13,8 @@ grant execute on function auth.uid() to authenticated;
 insert into auth.users (id) values
   ('11111111-1111-4111-8111-111111111111'),
   ('22222222-2222-4222-8222-222222222222'),
-  ('33333333-3333-4333-8333-333333333333')
+  ('33333333-3333-4333-8333-333333333333'),
+  ('44444444-4444-4444-8444-444444444444')
 on conflict do nothing;
 
 set role authenticated;
@@ -22,6 +23,7 @@ select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111
 select public.create_room(2, 30, true, false, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') as host_state \gset
 select (:'host_state'::jsonb->'room'->>'id') as room_id, (:'host_state'::jsonb->'room'->>'code') as room_code \gset
 select set_config('test.room_code', :'room_code', false);
+select set_config('test.room_id', :'room_id', false);
 
 select ((public.create_room(2, 30, true, false, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')->'room'->>'id')::uuid = :'room_id'::uuid) as idempotent \gset
 \if :idempotent
@@ -48,17 +50,71 @@ select (:'host_player'::jsonb->'player'->>'nickname' = 'HostPlayer') as host_joi
   \quit 1
 \endif
 
-select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
-select public.join_room(:'room_code', 'Alpha') as player_one \gset
-
-select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
-select public.join_room(:'room_code', 'Bravo') as player_two \gset
+select public.room_tick(:'room_id'::uuid) as solo_lobby \gset
+select (:'solo_lobby'::jsonb->'room'->>'phase' = 'lobby') as solo_waiting \gset
+\if :solo_waiting
+\else
+  \warn 'A single player room started before its lobby deadline'
+  \quit 1
+\endif
 
 reset role;
 update public.rooms set lobby_deadline = clock_timestamp() - interval '1 second' where id = :'room_id'::uuid;
 set role authenticated;
 
 select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
+select public.join_room(:'room_code', 'Alpha') as player_one \gset
+select set_config('test.player_one_id', :'player_one'::jsonb->'player'->>'id', false);
+select (:'player_one'::jsonb->'room'->>'phase' = 'lobby' and :'player_one'::jsonb->'room'->>'lobby_stage' = 'countdown' and (:'player_one'::jsonb->'room'->>'lobby_deadline')::timestamptz > clock_timestamp()) as countdown_valid \gset
+\if :countdown_valid
+\else
+  \warn 'Second player did not receive a fresh countdown window'
+  \quit 1
+\endif
+
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+select public.join_room(:'room_code', 'Bravo') as player_two \gset
+select set_config('test.player_two_id', :'player_two'::jsonb->'player'->>'id', false);
+
+do $$
+begin
+  begin
+    perform public.kick_player(current_setting('test.room_id')::uuid, current_setting('test.player_two_id')::uuid);
+    raise exception 'Non-host kick unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'Non-host kick unexpectedly succeeded' then raise; end if;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+select public.kick_player(:'room_id'::uuid, current_setting('test.player_two_id')::uuid) as kick_bravo \gset
+select public.kick_player(:'room_id'::uuid, current_setting('test.player_one_id')::uuid) as kick_alpha \gset
+select (:'kick_alpha'::jsonb->'room'->>'phase' = 'lobby' and :'kick_alpha'::jsonb->'room'->>'lobby_stage' = 'waiting') as kick_waiting \gset
+\if :kick_waiting
+\else
+  \warn 'Kicking down to one player did not restore solo waiting mode'
+  \quit 1
+\endif
+
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+do $$
+begin
+  begin
+    perform public.join_room(current_setting('test.room_code'), 'BravoAgain');
+    raise exception 'Kicked player unexpectedly rejoined';
+  exception when others then
+    if sqlerrm = 'Kicked player unexpectedly rejoined' then raise; end if;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '44444444-4444-4444-8444-444444444444', false);
+select public.join_room(:'room_code', 'Charlie') as player_two_again \gset
+
+reset role;
+update public.rooms set lobby_deadline = clock_timestamp() - interval '1 second' where id = :'room_id'::uuid;
+set role authenticated;
+
+select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 select public.room_tick(:'room_id'::uuid);
 
 select (public.get_player_state(:'room_code')->'room' ? 'answer_index') as answer_hidden \gset
@@ -67,13 +123,10 @@ select (public.get_player_state(:'room_code')->'room' ? 'answer_index') as answe
   \quit 1
 \endif
 
-select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
-select public.submit_vote(:'room_id'::uuid, 0);
-select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
-select public.submit_vote(:'room_id'::uuid, 1);
-
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 select public.submit_vote(:'room_id'::uuid, 0);
+select set_config('request.jwt.claim.sub', '44444444-4444-4444-8444-444444444444', false);
+select public.submit_vote(:'room_id'::uuid, 1);
 
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 select public.get_host_state(:'room_id'::uuid) as reveal_state \gset
