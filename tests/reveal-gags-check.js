@@ -9,7 +9,7 @@ const nodes = {
 };
 const context = {
   console,
-  document: { getElementById: id => nodes[id] || null },
+  document: { getElementById: id => nodes[id] || null, querySelectorAll: () => [] },
   window: {},
   Game: {
     onChange() {},

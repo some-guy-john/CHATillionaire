@@ -14,6 +14,8 @@ drop function if exists public.join_room(text, text, boolean) cascade;
 drop function if exists public.get_player_state(text) cascade;
 drop function if exists public.get_host_state(uuid) cascade;
 drop function if exists public.room_tick(uuid) cascade;
+drop function if exists public.player_tick(text) cascade;
+drop function if exists public.start_game(uuid) cascade;
 drop function if exists public.submit_vote(uuid, integer) cascade;
 drop function if exists public.force_close_round(uuid) cascade;
 drop function if exists public.finish_reveal(uuid) cascade;
@@ -69,6 +71,7 @@ create table if not exists public.players (
   normalized_nickname text not null,
   alive boolean not null default true,
   score integer not null default 0 check (score >= 0),
+  removed_at timestamptz,
   joined_at timestamptz not null default now(),
   unique (room_id, normalized_nickname),
   unique (room_id, user_id),
@@ -161,7 +164,7 @@ set search_path = ''
 as $$
   select private.is_host(p_room_id) or exists (
     select 1 from public.players
-    where room_id = p_room_id and user_id = auth.uid()
+    where room_id = p_room_id and user_id = auth.uid() and removed_at is null
   );
 $$;
 
@@ -240,8 +243,10 @@ begin
   from generate_series(0, 3) choices(option_index)
   left join (
     select option_index, count(*)::integer vote_count
-    from public.votes
-    where room_id = p_room_id and round_number = v_room.round_number
+     from public.votes v_vote
+     join public.players p_vote on p_vote.id = v_vote.player_id
+       and p_vote.room_id = p_room_id and p_vote.removed_at is null
+     where v_vote.room_id = p_room_id and v_vote.round_number = v_room.round_number
     group by option_index
   ) v using (option_index);
 
@@ -259,7 +264,7 @@ begin
   from public.players p
   left join public.votes v on
     v.room_id = p.room_id and v.player_id = p.id and v.round_number = v_room.round_number
-  where p.room_id = p_room_id and p.alive = true;
+   where p.room_id = p_room_id and p.alive = true and p.removed_at is null;
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'name', item->>'name',
@@ -335,7 +340,7 @@ begin
       (item->>'correct')::boolean correct
     from jsonb_array_elements(v_round.result_payload->'playerResults') item
   ) result
-  where p.id = result.id and p.room_id = p_room_id;
+   where p.id = result.id and p.room_id = p_room_id and p.removed_at is null;
 
   update public.rooms set
     reveal_complete = true,
@@ -358,7 +363,7 @@ begin
   if v_room.phase <> 'reveal' or not v_room.reveal_complete then return; end if;
   if v_room.next_round_at is null or v_room.next_round_at > now() then return; end if;
 
-  select count(*) into v_alive from public.players where room_id = p_room_id and alive = true;
+   select count(*) into v_alive from public.players where room_id = p_room_id and alive = true and removed_at is null;
   if v_room.round_number >= v_room.total_rounds or v_alive = 0 then
     update public.rooms set phase = 'gameover', next_round_at = null where id = p_room_id;
   else
@@ -377,12 +382,13 @@ as $$
   select jsonb_build_object(
     'room', to_jsonb(r) - 'host_user_id' - 'creation_token',
     'players', coalesce((
-      select jsonb_agg(jsonb_build_object(
-        'id', p.id,
-        'nickname', p.nickname,
-        'alive', p.alive,
-        'score', p.score,
-        'is_host_player', p.user_id = auth.uid(),
+       select jsonb_agg(jsonb_build_object(
+         'id', p.id,
+         'nickname', p.nickname,
+         'alive', p.alive,
+         'score', p.score,
+         'removed_at', p.removed_at,
+         'is_host_player', p.user_id = auth.uid(),
         'joined_at', p.joined_at,
         'has_voted', exists (
           select 1 from public.votes v
@@ -390,9 +396,16 @@ as $$
         )
       ) order by p.joined_at)
       from public.players p where p.room_id = r.id
-    ), '[]'::jsonb),
-    'kick_enabled', true,
-    'reveal', case when r.phase in ('reveal', 'gameover') then (
+     ), '[]'::jsonb),
+     'kick_enabled', true,
+     'host_vote', (
+       select jsonb_build_object('option_index', v.option_index, 'submitted_at', v.submitted_at)
+       from public.players hp
+       join public.votes v on v.player_id = hp.id
+         and v.room_id = r.id and v.round_number = r.round_number
+       where hp.room_id = r.id and hp.user_id = auth.uid() and hp.removed_at is null
+     ),
+     'reveal', case when r.phase in ('reveal', 'gameover') then (
       select rr.result_payload from private.room_rounds rr
       where rr.room_id = r.id and rr.round_number = r.round_number
     ) else null end
@@ -462,26 +475,27 @@ begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   select * into v_room from public.rooms where code = upper(trim(p_code));
   if not found then return null; end if;
-  select * into v_player from public.players
-    where room_id = v_room.id and user_id = auth.uid();
+   if exists (
+     select 1 from public.kicked_players
+     where room_id = v_room.id and user_id = auth.uid()
+   ) then
+     return jsonb_build_object(
+       'room', jsonb_build_object('id', v_room.id, 'code', v_room.code, 'phase', v_room.phase),
+       'player', null,
+       'kicked', true
+     );
+   end if;
 
-  if not found then
-    if exists (
-      select 1 from public.kicked_players
-      where room_id = v_room.id and user_id = auth.uid()
-    ) then
-      return jsonb_build_object(
-        'room', jsonb_build_object('id', v_room.id, 'code', v_room.code, 'phase', v_room.phase),
-        'player', null,
-        'kicked', true
-      );
-    end if;
-    return jsonb_build_object(
-      'room', jsonb_build_object('id', v_room.id, 'code', v_room.code, 'phase', v_room.phase),
-      'player', null,
-      'kicked', false
-    );
-  end if;
+   select * into v_player from public.players
+     where room_id = v_room.id and user_id = auth.uid();
+
+   if not found then
+     return jsonb_build_object(
+       'room', jsonb_build_object('id', v_room.id, 'code', v_room.code, 'phase', v_room.phase),
+       'player', null,
+       'kicked', false
+     );
+   end if;
 
   return jsonb_build_object(
     'room', to_jsonb(v_room) - 'host_user_id' - 'creation_token',
@@ -489,10 +503,11 @@ begin
       'id', v_player.id,
       'nickname', v_player.nickname,
       'alive', v_player.alive,
-      'score', v_player.score
-    ),
-    'player_count', (select count(*) from public.players where room_id = v_room.id),
-    'kicked', false,
+       'score', v_player.score,
+       'removed_at', v_player.removed_at
+     ),
+     'player_count', (select count(*) from public.players where room_id = v_room.id and removed_at is null),
+     'kicked', v_player.removed_at is not null,
     'my_vote', case when v_room.phase = 'voting' then (
       select jsonb_build_object('option_index', v.option_index, 'submitted_at', v.submitted_at)
       from public.votes v
@@ -547,10 +562,11 @@ begin
 
   select * into v_player from public.players
     where room_id = v_room.id and user_id = auth.uid();
-  if found then return public.get_player_state(v_room.code); end if;
+   if found and v_player.removed_at is null then return public.get_player_state(v_room.code); end if;
+   if found then raise exception 'You were kicked from this room.'; end if;
   if v_room.phase <> 'lobby' then raise exception 'This room has already started.'; end if;
 
-  if (select count(*) from public.players where room_id = v_room.id) >= 100 then
+   if (select count(*) from public.players where room_id = v_room.id and removed_at is null) >= 100 then
     raise exception 'This room is full.';
   end if;
 
@@ -562,7 +578,7 @@ begin
     raise exception 'That nickname is already taken in this room. Pick another.';
   end;
 
-  select count(*) into v_count from public.players where room_id = v_room.id;
+   select count(*) into v_count from public.players where room_id = v_room.id and removed_at is null;
   if v_count = 1 and v_room.lobby_stage = 'waiting' then
     update public.rooms set lobby_deadline = now() + interval '5 minutes'
     where id = v_room.id;
@@ -607,12 +623,14 @@ begin
   select * into strict v_room from public.rooms where id = p_room_id for update;
 
   if v_room.phase = 'lobby' and v_room.lobby_deadline <= now() then
-    select count(*) into v_players from public.players where room_id = p_room_id;
+     select count(*) into v_players from public.players where room_id = p_room_id and removed_at is null;
     if v_players > 0 then perform private.start_round_locked(p_room_id, 1); end if;
   elsif v_room.phase = 'voting' then
-    select count(*) into v_alive from public.players where room_id = p_room_id and alive = true;
-    select count(*) into v_votes from public.votes
-      where room_id = p_room_id and round_number = v_room.round_number;
+   select count(*) into v_alive from public.players where room_id = p_room_id and alive = true and removed_at is null;
+     select count(*) into v_votes from public.votes v_vote
+       join public.players p_vote on p_vote.id = v_vote.player_id
+         and p_vote.room_id = p_room_id and p_vote.removed_at is null
+       where v_vote.room_id = p_room_id and v_vote.round_number = v_room.round_number;
     if v_room.round_deadline <= now() or (v_alive > 0 and v_votes >= v_alive) then
       perform private.close_voting_locked(p_room_id);
     elsif v_room.speedup_enabled and v_votes >= ceil(v_alive / 2.0)
@@ -634,6 +652,46 @@ begin
 end;
 $$;
 
+create or replace function public.player_tick(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_room public.rooms%rowtype;
+begin
+  select * into v_room from public.rooms where code = upper(trim(p_code));
+  if not found then return null; end if;
+  if exists (select 1 from public.kicked_players where room_id = v_room.id and user_id = auth.uid()) then
+    return public.get_player_state(v_room.code);
+  end if;
+  if not private.is_member(v_room.id) then raise exception 'Room access required'; end if;
+  perform public.room_tick(v_room.id);
+  return public.get_player_state(v_room.code);
+end;
+$$;
+
+create or replace function public.start_game(p_room_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_room public.rooms%rowtype;
+  v_players integer;
+begin
+  if not private.is_host(p_room_id) then raise exception 'Host access required'; end if;
+  select * into strict v_room from public.rooms where id = p_room_id for update;
+  if v_room.phase <> 'lobby' then return private.host_state(p_room_id); end if;
+  select count(*) into v_players from public.players where room_id = p_room_id and removed_at is null;
+  if v_players = 0 then raise exception 'At least one player must join before starting.'; end if;
+  perform private.start_round_locked(p_room_id, 1);
+  return private.host_state(p_room_id);
+end;
+$$;
+
 create or replace function public.submit_vote(p_room_id uuid, p_option_index integer)
 returns jsonb
 language plpgsql
@@ -650,7 +708,7 @@ begin
   select * into strict v_room from public.rooms where id = p_room_id for update;
   select * into v_player from public.players
     where room_id = p_room_id and user_id = auth.uid();
-  if not found or not v_player.alive then raise exception 'You are not an active player'; end if;
+   if not found or not v_player.alive or v_player.removed_at is not null then raise exception 'You are not an active player'; end if;
   if v_room.phase <> 'voting' or v_room.round_deadline <= clock_timestamp() then
     raise exception 'Voting is closed';
   end if;
@@ -659,9 +717,11 @@ begin
   values (p_room_id, v_player.id, auth.uid(), v_room.round_number, p_option_index)
   on conflict (room_id, player_id, round_number) do nothing;
 
-  select count(*) into v_alive from public.players where room_id = p_room_id and alive = true;
-  select count(*) into v_votes from public.votes
-    where room_id = p_room_id and round_number = v_room.round_number;
+   select count(*) into v_alive from public.players where room_id = p_room_id and alive = true and removed_at is null;
+   select count(*) into v_votes from public.votes v_vote
+     join public.players p_vote on p_vote.id = v_vote.player_id
+       and p_vote.room_id = p_room_id and p_vote.removed_at is null
+     where v_vote.room_id = p_room_id and v_vote.round_number = v_room.round_number;
   if v_alive > 0 and v_votes >= v_alive then
     perform private.close_voting_locked(p_room_id);
   elsif v_room.speedup_enabled and v_votes >= ceil(v_alive / 2.0)
@@ -669,7 +729,8 @@ begin
     update public.rooms set round_deadline = clock_timestamp() + interval '12 seconds' where id = p_room_id;
   end if;
 
-  return public.get_player_state(v_room.code);
+   if private.is_host(p_room_id) then return private.host_state(p_room_id); end if;
+   return public.get_player_state(v_room.code);
 end;
 $$;
 
@@ -715,10 +776,10 @@ begin
   if not private.is_host(p_room_id) then raise exception 'Host access required'; end if;
   select * into strict v_room from public.rooms where id = p_room_id for update;
   if v_room.phase = 'gameover' then raise exception 'This room has already ended.'; end if;
-  if v_room.phase not in ('lobby', 'voting') then raise exception 'Players can only be kicked during the lobby or voting.'; end if;
+   if v_room.phase not in ('lobby', 'voting', 'reveal') then raise exception 'Players can only be kicked before the game ends.'; end if;
 
   select * into v_player from public.players
-    where room_id = p_room_id and id = p_player_id
+     where room_id = p_room_id and id = p_player_id and removed_at is null
     for update;
   if not found then raise exception 'Player is no longer in this room.'; end if;
   if v_player.user_id = v_room.host_user_id then raise exception 'The host player cannot be kicked.'; end if;
@@ -728,25 +789,30 @@ begin
   on conflict (room_id, user_id) do update set
     nickname = excluded.nickname,
     kicked_at = now();
-  delete from public.players where room_id = p_room_id and id = p_player_id;
+   update public.players set alive = false, removed_at = now()
+   where room_id = p_room_id and id = p_player_id;
+   delete from public.votes
+   where room_id = p_room_id and player_id = p_player_id and round_number = v_room.round_number;
 
   if v_room.phase = 'lobby' then
-    select count(*) into v_count from public.players where room_id = p_room_id;
+     select count(*) into v_count from public.players where room_id = p_room_id and removed_at is null;
     if v_count < 2 then
       update public.rooms set
         lobby_stage = 'waiting',
         lobby_deadline = now() + interval '5 minutes'
       where id = p_room_id;
     end if;
-  elsif v_room.phase = 'voting' then
-    select count(*) into v_alive from public.players where room_id = p_room_id and alive = true;
-    select count(*) into v_votes from public.votes
-      where room_id = p_room_id and round_number = v_room.round_number;
-    if v_alive = 0 then
+   elsif v_room.phase = 'voting' then
+     select count(*) into v_alive from public.players where room_id = p_room_id and alive = true and removed_at is null;
+     select count(*) into v_votes from public.votes v_vote
+       join public.players p_vote on p_vote.id = v_vote.player_id
+         and p_vote.room_id = p_room_id and p_vote.removed_at is null
+       where v_vote.room_id = p_room_id and v_vote.round_number = v_room.round_number;
+   if v_alive = 0 then
       update public.rooms set phase = 'gameover', next_round_at = null where id = p_room_id;
-    elsif v_votes >= v_alive then
-      perform private.close_voting_locked(p_room_id);
-    end if;
+   elsif v_votes >= v_alive then
+     perform private.close_voting_locked(p_room_id);
+   end if;
   end if;
 
   return private.host_state(p_room_id);
@@ -791,6 +857,8 @@ revoke all on function public.join_room(text, text, boolean) from public, anon, 
 revoke all on function public.get_player_state(text) from public, anon, authenticated;
 revoke all on function public.get_host_state(uuid) from public, anon, authenticated;
 revoke all on function public.room_tick(uuid) from public, anon, authenticated;
+revoke all on function public.player_tick(text) from public, anon, authenticated;
+revoke all on function public.start_game(uuid) from public, anon, authenticated;
 revoke all on function public.submit_vote(uuid, integer) from public, anon, authenticated;
 revoke all on function public.force_close_round(uuid) from public, anon, authenticated;
 revoke all on function public.finish_reveal(uuid) from public, anon, authenticated;
@@ -802,6 +870,8 @@ grant execute on function public.join_room(text, text, boolean) to authenticated
 grant execute on function public.get_player_state(text) to authenticated;
 grant execute on function public.get_host_state(uuid) to authenticated;
 grant execute on function public.room_tick(uuid) to authenticated;
+grant execute on function public.player_tick(text) to authenticated;
+grant execute on function public.start_game(uuid) to authenticated;
 grant execute on function public.submit_vote(uuid, integer) to authenticated;
 grant execute on function public.force_close_round(uuid) to authenticated;
 grant execute on function public.finish_reveal(uuid) to authenticated;

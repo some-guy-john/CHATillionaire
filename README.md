@@ -47,12 +47,16 @@ existing rooms and questions.
    **Make a room!**.
 2. Copy the generated player link and post it in chat. Viewers open the link,
    choose a nickname, and answer from their own device. The lobby also shows a
-   QR code for phones and a **Play on this device** link for the streamer. The
-   host can kick players from the lobby or while voting.
-3. Put the host page in OBS as a **Window Capture** or **Browser Source**. The
+   QR code for phones and host play options. The host can kick players from the
+   lobby, voting, or reveal screens.
+3. If the host wants to play, choose **Play on this screen** to answer beside
+   the host controls, or **Play in a separate tab** to keep the answer buttons
+   away from OBS. The host player is protected from being kicked.
+4. Put the host page in OBS as a **Window Capture** or **Browser Source**. The
    host page owns the colorful reveal; viewer pages tell players to watch the
-   stream for the result.
-4. The lobby waits up to five minutes. As soon as player two joins, a 30-second
+   stream for the result. The host can use **Start game now** after at least one
+   player joins, or let the lobby timer start the game automatically.
+5. The lobby waits up to five minutes. As soon as player two joins, a 30-second
    countdown starts. If only one player is present when the five-minute lobby
    expires, the game starts solo.
 5. Questions use a 30-second timer by default. A round ends when every alive
@@ -62,10 +66,10 @@ existing rooms and questions.
    the host page runs the playful voter spotlight animations. Wrong or missed
    answers eliminate a player.
 
-The streamer control page and player page are intentionally separate. To play
-as a contestant, open the generated **Play on this device** link in another
-tab, a private window, or on a phone. The explicit player link is required so
-the host does not accidentally join while managing the room.
+The streamer control page and player page are intentionally separate. The
+explicit player link is required so the host does not accidentally join while
+managing the room. Host and viewer polling can also advance expired timers, so
+the game does not depend on the control page being the only active tab.
 
 ## Editing the question bank
 
@@ -90,9 +94,9 @@ players.
 ## Deploying to GitHub Pages (free hosting)
 
 1. Push this folder to `https://github.com/some-guy-john/CHATillionaire`.
-2. In the repo, go to **Settings → Pages**.
-3. Under "Build and deployment", set **Source** to "Deploy from a branch",
-   pick your main branch and the `/ (root)` folder, then save.
+2. In the repo, go to **Settings → Pages** and set **Source** to **GitHub Actions**.
+3. Push to `main`, or manually run the **Deploy static site to GitHub Pages**
+   workflow from the Actions tab.
 4. The live URL is `https://some-guy-john.github.io/CHATillionaire/`.
 
 No build step, no server, no cost.
@@ -104,7 +108,7 @@ No build step, no server, no cost.
 - **The room has no questions:** enable anonymous sign-ins, run `supabase/schema.sql`, then paste the private `supabase/questions-seed.sql` into Supabase SQL Editor.
 - **The host refreshes into setup:** the saved room was deleted or expired. Create a new room and share its new link.
 - **A player cannot join after the game starts:** viewers must join during the lobby; ask the streamer for the next room.
-- **The host kick button is missing:** run `supabase/kick-migration.sql` in Supabase SQL Editor, then refresh the host page.
+- **The host controls are missing:** run `supabase/kick-migration.sql` in Supabase SQL Editor, then refresh the host page. This migration adds instant start, host-player state, preserved kicking, and viewer-driven timer progression without deleting rooms or questions.
 
 ## Notes
 

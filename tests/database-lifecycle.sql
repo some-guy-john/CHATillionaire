@@ -58,6 +58,24 @@ select (:'solo_lobby'::jsonb->'room'->>'phase' = 'lobby') as solo_waiting \gset
   \quit 1
 \endif
 
+select public.create_room(2, 30, true, false, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') as instant_room \gset
+select (:'instant_room'::jsonb->'room'->>'id') as instant_room_id, (:'instant_room'::jsonb->'room'->>'code') as instant_room_code \gset
+select public.join_room(:'instant_room_code', 'SoloHost', true);
+select public.start_game(:'instant_room_id'::uuid) as instant_start \gset
+select (:'instant_start'::jsonb->'room'->>'phase' = 'voting') as instant_start_valid \gset
+\if :instant_start_valid
+\else
+  \warn 'Host instant start did not begin voting'
+  \quit 1
+\endif
+
+select (public.get_host_state(:'room_id'::uuid)->'players'->0 ? 'removed_at') as removal_field_present \gset
+\if :removal_field_present
+\else
+  \warn 'Host state is missing kick history metadata'
+  \quit 1
+\endif
+
 reset role;
 update public.rooms set lobby_deadline = clock_timestamp() - interval '1 second' where id = :'room_id'::uuid;
 set role authenticated;
@@ -109,6 +127,7 @@ end $$;
 
 select set_config('request.jwt.claim.sub', '44444444-4444-4444-8444-444444444444', false);
 select public.join_room(:'room_code', 'Charlie') as player_two_again \gset
+select set_config('test.player_two_id', :'player_two_again'::jsonb->'player'->>'id', false);
 
 reset role;
 update public.rooms set lobby_deadline = clock_timestamp() - interval '1 second' where id = :'room_id'::uuid;
@@ -138,6 +157,17 @@ select (
 \if :reveal_valid
 \else
   \warn 'Reveal did not close correctly or answer is missing'
+  \quit 1
+\endif
+
+select public.kick_player(:'room_id'::uuid, current_setting('test.player_two_id')::uuid) as reveal_kick \gset
+select exists (
+  select 1 from jsonb_array_elements(:'reveal_kick'::jsonb->'players') player
+  where player->>'id' = current_setting('test.player_two_id') and player->>'removed_at' is not null
+) as reveal_kick_checked \gset
+\if :reveal_kick_checked
+\else
+  \warn 'Reveal kick did not mark the player as removed'
   \quit 1
 \endif
 

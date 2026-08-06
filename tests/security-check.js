@@ -28,6 +28,8 @@ for (const required of [
   'create or replace function public.submit_vote',
   'create or replace function public.finish_reveal',
   'create or replace function public.kick_player',
+  'create or replace function public.start_game',
+  'create or replace function public.player_tick',
   'create table if not exists public.kicked_players',
   "'kick_enabled', true",
   'revoke all on public.rooms, public.players, public.kicked_players, public.votes, public.player_round_results from public, anon, authenticated',
@@ -61,9 +63,14 @@ if (!schema.includes('grant execute on function public.kick_player(uuid, uuid) t
 if (!schema.includes('You were kicked from this room.')) {
   fail('Kicked players are not blocked from rejoining.');
 }
+if (!schema.includes('removed_at timestamptz')) {
+  fail('Kicked player history is not preserved.');
+}
 for (const required of [
   'create table if not exists public.kicked_players',
   'create or replace function public.kick_player',
+  'create or replace function public.start_game',
+  'create or replace function public.player_tick',
   'grant execute on function public.kick_player(uuid, uuid) to authenticated'
 ]) {
   if (!migration.includes(required)) fail(`Kick migration is missing: ${required}`);

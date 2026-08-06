@@ -77,6 +77,14 @@ const ChatSupabase = (() => {
     return rpc('room_tick', { p_room_id: roomId });
   }
 
+  function tickPlayer(code) {
+    return rpc('player_tick', { p_code: String(code).trim().toUpperCase() });
+  }
+
+  function startGame(roomId) {
+    return rpc('start_game', { p_room_id: roomId });
+  }
+
   function submitVote(roomId, optionIndex) {
     return rpc('submit_vote', { p_room_id: roomId, p_option_index: optionIndex });
   }
@@ -104,6 +112,8 @@ const ChatSupabase = (() => {
     joinRoom,
     getPlayerState,
     tickRoom,
+    tickPlayer,
+    startGame,
     submitVote,
     forceCloseRound,
     finishReveal,

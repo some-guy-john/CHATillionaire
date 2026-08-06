@@ -41,13 +41,16 @@ const Game = (() => {
 
   function makeState() {
     const phase = room?.phase || 'setup';
-    const alive = players.filter(player => player.alive).length;
+    const alive = players.filter(player => player.alive && !player.removed_at).length;
     const now = Date.now();
     const deadline = phase === 'lobby' ? room?.lobby_deadline : room?.round_deadline;
     return {
       phase,
       room,
       kickEnabled: remote?.kick_enabled === true,
+      hostVote: remote?.host_vote || null,
+      hostPlaying: players.some(player => player.is_host_player && !player.removed_at),
+      hostPlayMode: readHostPlayMode(),
       roomCode: room?.code || '',
       joinUrl: room ? buildJoinUrl(room.code) : '',
       players: players.map(player => ({ ...player, name: player.nickname })),
@@ -97,6 +100,7 @@ const Game = (() => {
     stopPolling();
     cancelRestore();
     errorMessage = '';
+    setHostPlayMode('');
     normalizeConfig(nextConfig);
     connection = 'connecting';
     emit();
@@ -155,7 +159,7 @@ const Game = (() => {
     remote = payload;
     room = payload.room;
     players = payload.players || [];
-    votes = new Map(players.filter(player => player.has_voted).map(player => [player.nickname.toLowerCase(), null]));
+    votes = new Map(players.filter(player => player.has_voted && !player.removed_at).map(player => [player.nickname.toLowerCase(), null]));
     config = {
       totalRounds: room.total_rounds,
       timerSeconds: room.timer_seconds,
@@ -260,7 +264,59 @@ const Game = (() => {
     }
   }
 
+  async function startGame() {
+    if (!room || room.phase !== 'lobby') return;
+    stopPolling();
+    try {
+      const sequence = ++requestSequence;
+      const payload = await ChatSupabase.startGame(room.id);
+      applyRemote(payload, true, sequence);
+      startPolling();
+    } catch (error) {
+      startPolling();
+      errorMessage = error.message || 'Could not start the game. Try again.';
+      emit();
+      throw error;
+    }
+  }
+
+  async function submitHostVote(optionIndex) {
+    if (!room || room.phase !== 'voting') return;
+    try {
+      const sequence = ++requestSequence;
+      const payload = await ChatSupabase.submitVote(room.id, optionIndex);
+      applyRemote(payload, true, sequence);
+    } catch (error) {
+      errorMessage = error.message || 'Could not lock in your answer. Try again.';
+      emit();
+      throw error;
+    }
+  }
+
+  async function joinAsHostPlayer(nickname) {
+    if (!room || room.phase !== 'lobby') return;
+    stopPolling();
+    try {
+      const sequence = ++requestSequence;
+      await ChatSupabase.joinRoom(room.code, nickname, true);
+      const payload = await ChatSupabase.getHostState(room.id);
+      setHostPlayMode('screen');
+      applyRemote(payload, true, sequence);
+      startPolling();
+    } catch (error) {
+      startPolling();
+      errorMessage = error.message || 'Could not join as a player. Try again.';
+      emit();
+      throw error;
+    }
+  }
+
   async function createAnotherRoom() {
+    await endRoom();
+    emit();
+  }
+
+  async function endRoom() {
     const oldRoom = room;
     stopPolling();
     if (oldRoom) {
@@ -274,7 +330,6 @@ const Game = (() => {
     }
     clearHostRoom();
     resetLocal();
-    emit();
   }
 
   function buildRevealPlan(correctIndex) {
@@ -409,10 +464,26 @@ const Game = (() => {
     try { localStorage.removeItem('chatillionaire-host-room'); } catch { /* Nothing else to clear. */ }
   }
 
+  function readHostPlayMode() {
+    try { return localStorage.getItem('chatillionaire-host-play-mode') || ''; } catch { return ''; }
+  }
+
+  function setHostPlayMode(mode) {
+    try {
+      if (mode) localStorage.setItem('chatillionaire-host-play-mode', mode);
+      else localStorage.removeItem('chatillionaire-host-play-mode');
+    } catch { /* The room still works without this preference. */ }
+    emit();
+  }
+
   return {
     onChange,
     createRoom,
     restoreRoom,
+    startGame,
+    submitHostVote,
+    joinAsHostPlayer,
+    setHostPlayMode,
     forceEndRound,
     kickPlayer,
     createAnotherRoom,

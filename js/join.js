@@ -174,7 +174,9 @@ async function poll() {
   const sequence = ++requestSequence;
   try {
     pollCount += 1;
-    const next = await ChatSupabase.getPlayerState(roomCode);
+    const next = player
+      ? await ChatSupabase.tickPlayer(roomCode)
+      : await ChatSupabase.getPlayerState(roomCode);
     applySnapshot(next, sequence);
   } catch {
     pollDelay = Math.min(pollDelay * 2, 10000);
