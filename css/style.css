@@ -572,6 +572,7 @@ code { padding: 3px 7px; border: 2px solid var(--line); border-radius: 6px; back
 .viewer-field { max-width: 420px; margin: 27px auto 18px; text-align: left; }
 .viewer-note { margin: 18px 0 0; color: var(--ink-soft); font-family: var(--mono); font-size: 10px; font-weight: 500; }
 .viewer-message { max-width: 620px; margin: 0 auto; text-align: center; }
+.error-actions { display: flex; justify-content: center; gap: 12px; margin-top: 22px; }
 .viewer-play { max-width: 700px; margin: 0 auto; }
 .viewer-answer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
 

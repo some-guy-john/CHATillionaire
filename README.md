@@ -4,6 +4,8 @@ A free multiplayer trivia knockout game. Viewers join from their own phones,
 answer privately, and watch the host page run the colorful reveal. One wrong or
 missed answer eliminates you, and the last player standing wins.
 
+Live site: https://some-guy-john.github.io/CHATillionaire/
+
 ## Run it locally
 
 The app uses browser modules, authentication, and network requests, so serve the
@@ -82,14 +84,21 @@ players.
 
 ## Deploying to GitHub Pages (free hosting)
 
-1. Create a new GitHub repository and push this folder to it.
+1. Push this folder to `https://github.com/some-guy-john/CHATillionaire`.
 2. In the repo, go to **Settings → Pages**.
 3. Under "Build and deployment", set **Source** to "Deploy from a branch",
    pick your main branch and the `/ (root)` folder, then save.
-4. GitHub gives you a URL like `https://yourusername.github.io/reponame/` —
-   open that instead of localhost when you're live.
+4. The live URL is `https://some-guy-john.github.io/CHATillionaire/`.
 
 No build step, no server, no cost.
+
+## Troubleshooting
+
+- **The page stays on loading:** refresh once, then check that the browser can reach Supabase and the external script CDNs.
+- **A viewer cannot find the room:** generate a fresh room and share its complete player link, including the `room` query parameter.
+- **The room has no questions:** enable anonymous sign-ins, run `supabase/schema.sql`, then paste the private `supabase/questions-seed.sql` into Supabase SQL Editor.
+- **The host refreshes into setup:** the saved room was deleted or expired. Create a new room and share its new link.
+- **A player cannot join after the game starts:** viewers must join during the lobby; ask the streamer for the next room.
 
 ## Notes
 

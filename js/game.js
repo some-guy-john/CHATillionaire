@@ -123,7 +123,13 @@ const Game = (() => {
     try {
       const sequence = ++requestSequence;
       const payload = await ChatSupabase.getHostState(saved.id);
-      if (!payload?.room) throw new Error('Room no longer exists.');
+      if (!payload?.room) {
+        clearHostRoom();
+        connection = 'offline';
+        errorMessage = 'Your saved room is no longer available. Create a new room.';
+        emit();
+        return false;
+      }
       applyRemote(payload, false, sequence, true);
       startPolling();
       emit();
@@ -377,7 +383,10 @@ const Game = (() => {
     }
   }
   function readHostRoom() {
-    try { return JSON.parse(localStorage.getItem('chatillionaire-host-room')); } catch { return null; }
+    try {
+      const saved = JSON.parse(localStorage.getItem('chatillionaire-host-room'));
+      return saved && typeof saved.id === 'string' ? saved : null;
+    } catch { return null; }
   }
   function clearHostRoom() {
     try { localStorage.removeItem('chatillionaire-host-room'); } catch { /* Nothing else to clear. */ }

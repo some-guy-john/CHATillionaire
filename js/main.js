@@ -318,7 +318,9 @@ function render(state) {
   const revealKey = state.phase === 'reveal'
     ? `${state.roundNumber}-${state.revealComplete}-${[...state.revealedIndices].join('')}-${[...state.revealVerdicts].join('')}-${state.revealLastVerdictIndex}-${state.revealGag}-${JSON.stringify(state.revealVariant)}-${state.revealLine}`
     : '';
-  const key = state.phase === 'reveal' ? `reveal-${revealKey}` : `${state.phase}-${state.roundNumber}-${state.lobbyStage}`;
+  const key = state.phase === 'setup'
+    ? `setup-${state.error || ''}`
+    : state.phase === 'reveal' ? `reveal-${revealKey}` : `${state.phase}-${state.roundNumber}-${state.lobbyStage}`;
 
   if (currentViewKey === key) {
     if (state.phase === 'lobby') updateLobby(state);

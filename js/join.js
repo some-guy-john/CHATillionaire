@@ -36,8 +36,17 @@ function formatSeconds(seconds) {
 }
 
 function renderError(message, retryable = true) {
-  joinScreen.innerHTML = `<div class="viewer-message"><p class="eyebrow">Oops!</p><h1>${escapeHtml(message)}</h1><p class="small">${retryable ? 'We will keep trying. Check your connection and stay on this page.' : 'Ask the streamer for a fresh join link and try again.'}</p></div>`;
+  joinScreen.removeAttribute('aria-busy');
+  joinScreen.innerHTML = `<div class="viewer-message"><p class="eyebrow">Oops!</p><h1>${escapeHtml(message)}</h1><p class="small">${retryable ? 'The connection did not stick. Check your connection, then try again.' : 'Ask the streamer for a fresh join link and try again.'}</p>${retryable ? '<div class="error-actions"><button class="primary" id="retry-join" type="button">Try again</button></div>' : ''}</div>`;
   setStatus('offline', retryable ? 'Reconnecting' : 'Room unavailable');
+  if (retryable) document.getElementById('retry-join').addEventListener('click', discoverRoom);
+}
+
+function isRetryableError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return !message.includes('does not exist')
+    && !message.includes('missing its room code')
+    && !message.includes('already started');
 }
 
 function renderJoin() {
@@ -103,7 +112,7 @@ async function discoverRoom() {
     startPolling();
   } catch (error) {
     if (sequence < appliedSequence) return;
-    renderError(error.message || 'Could not find that room.', false);
+    renderError(error.message || 'Could not find that room.', isRetryableError(error));
   }
 }
 

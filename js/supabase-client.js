@@ -1,6 +1,13 @@
 const ChatSupabase = (() => {
-  const settings = window.CHATILLIONAIRE_CONFIG;
-  const client = window.supabase.createClient(settings.supabaseUrl, settings.supabaseKey);
+  const settings = window.CHATILLIONAIRE_CONFIG || {};
+  let client = null;
+  try {
+    if (window.supabase?.createClient && settings.supabaseUrl && settings.supabaseKey) {
+      client = window.supabase.createClient(settings.supabaseUrl, settings.supabaseKey);
+    }
+  } catch {
+    client = null;
+  }
   let authPromise = null;
   const RPC_TIMEOUT_MS = 12000;
 
@@ -8,7 +15,14 @@ const ChatSupabase = (() => {
     if (error) throw new Error(error.message || 'Supabase request failed.');
   }
 
+  function ensureReady() {
+    if (!client) {
+      throw new Error('The game service did not load. Refresh the page and try again.');
+    }
+  }
+
   async function ensureAuth() {
+    ensureReady();
     if (!authPromise) {
       authPromise = (async () => {
         const { data: sessionData, error: sessionError } = await client.auth.getSession();
