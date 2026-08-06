@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">CHATillionaire, the chat quiz show</title>
+  <desc id="description">A colorful multiplayer trivia knockout game for streamers and their chat.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff4d8"/>
+      <stop offset="1" stop-color="#fffaf0"/>
+    </linearGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="2" fill="#29233d" opacity=".12"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#29233d"/>
+  <rect x="22" y="22" width="1156" height="586" rx="34" fill="url(#paper)" stroke="#392e4d" stroke-width="6"/>
+  <circle cx="90" cy="72" r="180" fill="#ffc94f" opacity=".7"/>
+  <circle cx="1135" cy="580" r="210" fill="#70d9bd" opacity=".55"/>
+  <rect x="825" y="54" width="300" height="520" rx="28" fill="url(#dots)"/>
+  <rect x="822" y="51" width="300" height="520" rx="28" fill="none" stroke="#392e4d" stroke-dasharray="8 12" stroke-width="3"/>
+  <rect x="876" y="128" width="190" height="190" rx="24" fill="#65c9ef" stroke="#392e4d" stroke-width="5"/>
+  <path d="M971 158 991 198l44 6-32 31 8 44-40-21-40 21 8-44-32-31 44-6z" fill="#ffc94f" stroke="#392e4d" stroke-linejoin="round" stroke-width="5"/>
+  <rect x="876" y="363" width="190" height="54" rx="14" fill="#f75b87" stroke="#392e4d" stroke-width="5" transform="rotate(-4 971 390)"/>
+  <text x="971" y="399" fill="#fffaf0" font-family="Arial, sans-serif" font-size="27" font-weight="800" text-anchor="middle">CHAT CHAOS</text>
+  <text x="93" y="132" fill="#d83b68" font-family="monospace" font-size="22" font-weight="700" letter-spacing="4">THE CHAT QUIZ SHOW</text>
+  <text x="88" y="270" fill="#29233d" font-family="Arial, sans-serif" font-size="92" font-weight="900" letter-spacing="-5">CHATillionaire</text>
+  <text x="96" y="344" fill="#29233d" font-family="Arial, sans-serif" font-size="35" font-weight="700">Host it. Share it. Survive it.</text>
+  <rect x="94" y="410" width="490" height="86" rx="18" fill="#70d9bd" stroke="#392e4d" stroke-width="5"/>
+  <text x="339" y="463" fill="#29233d" font-family="Arial, sans-serif" font-size="30" font-weight="800" text-anchor="middle">Multiplayer trivia knockout</text>
+  <text x="96" y="554" fill="#665c79" font-family="monospace" font-size="18" letter-spacing="2">VIEWERS PLAY ON THEIR PHONES</text>
+</svg>
