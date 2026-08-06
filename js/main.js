@@ -104,6 +104,22 @@ function copyJoinLink() {
   else failed();
 }
 
+function hostPlayerUrl(state) {
+  const url = new URL(state.joinUrl);
+  url.searchParams.set('host', '1');
+  return url.href;
+}
+
+function renderJoinQr(state) {
+  const canvas = document.getElementById('join-qr');
+  if (!canvas || !window.QRCode) return;
+  QRCode.toCanvas(canvas, state.joinUrl, {
+    width: 156,
+    margin: 1,
+    color: { dark: '#29233d', light: '#fffaf0' }
+  }).catch(() => {});
+}
+
 function renderSetup(state) {
   screenEl.innerHTML = `
     <div class="intro-layout">
@@ -174,10 +190,11 @@ function renderLobby(state) {
     <h1>${countdown ? 'The countdown is on!' : 'Send in the players!'}</h1>
     <p class="small" id="lobby-copy" style="margin:0 0 22px;">${lobbyText}</p>
     <div class="share-card">
-      <label class="share-label" for="join-link">Player join link</label>
+      <div class="share-heading"><span><span class="share-label">Player join link</span><strong>Scan or share this with chat</strong></span><canvas id="join-qr" width="156" height="156" aria-label="QR code for the player join link"></canvas></div>
       <div class="share-controls"><input id="join-link" type="text" readonly value="${escapeHtml(state.joinUrl)}"><button id="copy-link">Copy link</button></div>
       <span id="copy-status" class="muted" role="status"></span>
       <strong>Room code: ${escapeHtml(state.roomCode)}</strong>
+      <a class="secondary-action" href="${escapeHtml(hostPlayerUrl(state))}" target="_blank" rel="noopener">Play on this device &rarr;</a>
     </div>
     <div class="list lobby-list" id="lobby-player-list">
       ${state.players.length
@@ -191,6 +208,7 @@ function renderLobby(state) {
     </div>
   `;
   document.getElementById('copy-link').addEventListener('click', copyJoinLink);
+  renderJoinQr(state);
 }
 
 function updateLobby(state) {

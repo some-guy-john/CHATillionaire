@@ -10,6 +10,7 @@ drop function if exists public.can_submit_vote(uuid, uuid, integer) cascade;
 drop function if exists public.create_room(integer, integer, boolean, boolean) cascade;
 drop function if exists public.create_room(integer, integer, boolean, boolean, uuid) cascade;
 drop function if exists public.join_room(text, text) cascade;
+drop function if exists public.join_room(text, text, boolean) cascade;
 drop function if exists public.get_player_state(text) cascade;
 drop function if exists public.get_host_state(uuid) cascade;
 drop function if exists public.room_tick(uuid) cascade;
@@ -364,7 +365,7 @@ security definer
 set search_path = ''
 as $$
   select jsonb_build_object(
-    'room', to_jsonb(r) - 'host_user_id',
+    'room', to_jsonb(r) - 'host_user_id' - 'creation_token',
     'players', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', p.id,
@@ -460,7 +461,7 @@ begin
   end if;
 
   return jsonb_build_object(
-    'room', to_jsonb(v_room) - 'host_user_id',
+    'room', to_jsonb(v_room) - 'host_user_id' - 'creation_token',
     'player', jsonb_build_object(
       'id', v_player.id,
       'nickname', v_player.nickname,
@@ -486,7 +487,11 @@ begin
 end;
 $$;
 
-create or replace function public.join_room(p_code text, p_nickname text)
+create or replace function public.join_room(
+  p_code text,
+  p_nickname text,
+  p_host_join boolean default false
+)
 returns jsonb
 language plpgsql
 security definer
@@ -506,7 +511,7 @@ begin
 
   select * into v_room from public.rooms where code = upper(trim(p_code)) for update;
   if not found then raise exception 'That room code does not exist.'; end if;
-  if v_room.host_user_id = auth.uid() then
+  if v_room.host_user_id = auth.uid() and not coalesce(p_host_join, false) then
     raise exception 'Open the player link on another device or in a private window.';
   end if;
 
@@ -694,7 +699,7 @@ revoke usage on schema private from public, anon, authenticated;
 revoke all on all functions in schema private from public, anon, authenticated;
 
 revoke all on function public.create_room(integer, integer, boolean, boolean, uuid) from public, anon, authenticated;
-revoke all on function public.join_room(text, text) from public, anon, authenticated;
+revoke all on function public.join_room(text, text, boolean) from public, anon, authenticated;
 revoke all on function public.get_player_state(text) from public, anon, authenticated;
 revoke all on function public.get_host_state(uuid) from public, anon, authenticated;
 revoke all on function public.room_tick(uuid) from public, anon, authenticated;
@@ -704,7 +709,7 @@ revoke all on function public.finish_reveal(uuid) from public, anon, authenticat
 revoke all on function public.end_room(uuid) from public, anon, authenticated;
 
 grant execute on function public.create_room(integer, integer, boolean, boolean, uuid) to authenticated;
-grant execute on function public.join_room(text, text) to authenticated;
+grant execute on function public.join_room(text, text, boolean) to authenticated;
 grant execute on function public.get_player_state(text) to authenticated;
 grant execute on function public.get_host_state(uuid) to authenticated;
 grant execute on function public.room_tick(uuid) to authenticated;

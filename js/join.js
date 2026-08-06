@@ -2,6 +2,7 @@ const joinScreen = document.getElementById('join-screen');
 const joinStatus = document.getElementById('join-status');
 const joinStatusLabel = document.getElementById('join-status-label');
 const roomCode = new URLSearchParams(window.location.search).get('room')?.trim().toUpperCase() || '';
+const hostJoin = new URLSearchParams(window.location.search).get('host') === '1';
 
 let snapshot = null;
 let room = null;
@@ -46,7 +47,7 @@ function renderJoin() {
     <form class="viewer-center" id="join-form">
       <p class="eyebrow">Room ${escapeHtml(roomCode || '??????')}</p>
       <h1>Ready to become a <em>legend?</em></h1>
-      <p class="small">Pick a nickname. No account, no fuss, just quiz chaos.</p>
+      <p class="small">${hostJoin ? 'You are joining as a player from the streamer account.' : 'Pick a nickname. No account, no fuss, just quiz chaos.'}</p>
       <div class="field viewer-field"><label for="nickname">Your nickname</label><input id="nickname" type="text" maxlength="18" autocomplete="off" placeholder="e.g. Quiz Goblin" aria-describedby="join-error"></div>
       <p id="join-error" class="small setup-error" role="alert" hidden></p>
       <button class="primary full" id="join-button" type="submit">Join the game!</button>
@@ -75,7 +76,7 @@ async function joinGame(event) {
   button.textContent = 'Joining...';
   try {
     const sequence = ++requestSequence;
-    applySnapshot(await ChatSupabase.joinRoom(roomCode, nickname), sequence);
+    applySnapshot(await ChatSupabase.joinRoom(roomCode, nickname, hostJoin), sequence);
     startPolling();
   } catch (joinError) {
     input.setAttribute('aria-invalid', 'true');
@@ -147,9 +148,7 @@ async function poll() {
   const sequence = ++requestSequence;
   try {
     pollCount += 1;
-    const next = player && room?.id && pollCount % 3 === 0
-      ? await ChatSupabase.tickRoom(room.id)
-      : await ChatSupabase.getPlayerState(roomCode);
+    const next = await ChatSupabase.getPlayerState(roomCode);
     applySnapshot(next, sequence);
   } catch {
     pollDelay = Math.min(pollDelay * 2, 10000);

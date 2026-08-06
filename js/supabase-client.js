@@ -47,8 +47,12 @@ const ChatSupabase = (() => {
     return rpc('get_host_state', { p_room_id: roomId });
   }
 
-  function joinRoom(code, nickname) {
-    return rpc('join_room', { p_code: String(code).trim().toUpperCase(), p_nickname: nickname });
+  function joinRoom(code, nickname, hostJoin = false) {
+    return rpc('join_room', {
+      p_code: String(code).trim().toUpperCase(),
+      p_nickname: nickname,
+      p_host_join: hostJoin
+    });
   }
 
   function getPlayerState(code) {

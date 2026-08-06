@@ -40,6 +40,14 @@ begin
   end;
 end $$;
 
+select public.join_room(:'room_code', 'HostPlayer', true) as host_player \gset
+select (:'host_player'::jsonb->'player'->>'nickname' = 'HostPlayer') as host_join_valid \gset
+\if :host_join_valid
+\else
+  \warn 'Explicit host player join failed'
+  \quit 1
+\endif
+
 select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
 select public.join_room(:'room_code', 'Alpha') as player_one \gset
 
@@ -63,6 +71,9 @@ select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222
 select public.submit_vote(:'room_id'::uuid, 0);
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
 select public.submit_vote(:'room_id'::uuid, 1);
+
+select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+select public.submit_vote(:'room_id'::uuid, 0);
 
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 select public.get_host_state(:'room_id'::uuid) as reveal_state \gset

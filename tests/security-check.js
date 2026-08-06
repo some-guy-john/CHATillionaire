@@ -48,5 +48,8 @@ for (const rpc of rpcCalls) {
 if (!schema.includes('public.create_room(integer, integer, boolean, boolean, uuid)')) {
   fail('Idempotent room creation signature is missing.');
 }
+if (!schema.includes('create or replace function public.join_room(') || !schema.includes('p_host_join boolean')) {
+  fail('Explicit host player join flag is missing.');
+}
 
 console.log('Security regression checks passed.');

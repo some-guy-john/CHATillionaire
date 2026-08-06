@@ -40,7 +40,8 @@ Then open the printed local URL in your browser.
 1. Open `index.html` through a local server or the GitHub Pages URL and click
    **Make a room!**.
 2. Copy the generated player link and post it in chat. Viewers open the link,
-   choose a nickname, and answer from their own device.
+   choose a nickname, and answer from their own device. The lobby also shows a
+   QR code for phones and a **Play on this device** link for the streamer.
 3. Put the host page in OBS as a **Window Capture** or **Browser Source**. The
    host page owns the colorful reveal; viewer pages tell players to watch the
    stream for the result.
@@ -53,6 +54,11 @@ Then open the printed local URL in your browser.
 6. Wrong answers turn red, the correct answer is always the final reveal, and
    the host page runs the playful voter spotlight animations. Wrong or missed
    answers eliminate a player.
+
+The streamer control page and player page are intentionally separate. To play
+as a contestant, open the generated **Play on this device** link in another
+tab, a private window, or on a phone. The explicit player link is required so
+the host does not accidentally join while managing the room.
 
 ## Editing the question bank
 

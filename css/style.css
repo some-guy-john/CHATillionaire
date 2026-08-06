@@ -710,10 +710,17 @@ code { padding: 3px 7px; border: 2px solid var(--line); border-radius: 6px; back
 }
 
 .share-label { color: var(--ink-soft); font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.share-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.share-heading > span { display: grid; gap: 4px; }
+.share-heading strong { font-family: var(--display); font-size: 17px; }
+.share-heading canvas { width: 112px !important; height: 112px !important; flex-shrink: 0; border: 3px solid var(--line); border-radius: 9px; }
 .share-controls { display: flex; gap: 9px; }
 .share-controls input { min-width: 0; height: 43px; padding: 0 11px; font-size: 12px; }
 .share-controls button { flex-shrink: 0; min-height: 43px; padding: 0 13px; font-size: 12px; }
 .share-card strong { font-family: var(--display); font-size: 16px; }
+.share-heading strong { font-size: 17px; }
+.secondary-action { color: var(--purple); font-size: 13px; font-weight: 900; text-decoration: none; }
+.secondary-action:hover { color: var(--pink-dark); text-decoration: underline; }
 .lobby-list { margin-bottom: 18px; }
 
 .viewer-wrap { max-width: 720px; }
@@ -998,6 +1005,8 @@ code { padding: 3px 7px; border: 2px solid var(--line); border-radius: 6px; back
   .gag-impact { font-size: 17px; }
   .share-controls { display: grid; }
   .share-controls button { width: 100%; }
+  .share-heading { align-items: start; }
+  .share-heading canvas { width: 88px !important; height: 88px !important; }
   .viewer-answer-grid { grid-template-columns: 1fr; }
 }
 
