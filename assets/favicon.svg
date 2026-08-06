@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>CHATillionaire</title>
+  <rect width="64" height="64" rx="17" fill="#29233d"/>
+  <rect x="10" y="10" width="44" height="44" rx="13" fill="#f75b87" stroke="#fff4d8" stroke-width="3" transform="rotate(-8 32 32)"/>
+  <path d="m32 16 4.6 9.3 10.3 1.5-7.4 7.2 1.8 10.2L32 39.4l-9.3 4.8 1.8-10.2-7.4-7.2 10.3-1.5z" fill="#ffc94f" stroke="#29233d" stroke-linejoin="round" stroke-width="2.5"/>
+</svg>

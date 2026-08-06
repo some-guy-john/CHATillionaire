@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#fff4d8">
+<meta name="description" content="A colorful multiplayer trivia knockout game.">
+<link rel="canonical" href="https://some-guy-john.github.io/CHATillionaire/">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://some-guy-john.github.io/CHATillionaire/">
+<meta property="og:title" content="CHATillionaire | The Chat Quiz Show">
+<meta property="og:description" content="A colorful multiplayer trivia knockout game for streamers and their chat.">
+<meta property="og:image" content="https://some-guy-john.github.io/CHATillionaire/assets/share-card.svg">
+<meta property="og:image:alt" content="CHATillionaire, the chat quiz show">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CHATillionaire | The Chat Quiz Show">
+<meta name="twitter:description" content="A colorful multiplayer trivia knockout game for streamers and their chat.">
+<meta name="twitter:image" content="https://some-guy-john.github.io/CHATillionaire/assets/share-card.svg">
+<title>CHATillionaire | The Chat Quiz Show</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="wrap host-wrap">
+    <header class="topbar">
+      <a class="brand" href="." aria-label="CHATillionaire home">
+        <span class="brand-mark"><span>★</span></span>
+        <span class="brand-copy"><strong>CHATillionaire</strong><small>the chat quiz show</small></span>
+      </a>
+      <div id="conn-status" class="conn-status conn-status--off" role="status" aria-live="polite">
+        <span class="dot"></span><span id="conn-label">Chat is snoozing</span>
+      </div>
+    </header>
+
+    <main id="screen" class="screen" aria-busy="true"><p class="small">Loading the game...</p></main>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/gags.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
