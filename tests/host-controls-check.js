@@ -13,10 +13,13 @@ for (const required of [
   'host-play-mode',
   'play-separate',
   'data-host-option',
+  'host-board-answer',
   'renderPlayerRoster(state, finished, state.kickEnabled)'
 ]) {
   if (!main.includes(required)) throw new Error(`Host control is missing: ${required}`);
 }
+
+if (main.includes('host-answer-card')) throw new Error('Host answers still use a separate answer card.');
 
 for (const required of ['startGame', 'submitHostVote', 'joinAsHostPlayer', 'tickPlayer']) {
   if (!game.includes(required) && !client.includes(required)) throw new Error(`Host API is missing: ${required}`);

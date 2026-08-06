@@ -368,16 +368,22 @@ function renderVoting(state) {
   const pct = alive > 0 ? Math.round((answered / alive) * 100) : 0;
   const hostCanAnswer = state.hostPlaying && state.hostPlayMode !== 'separate';
   const hostAnswer = state.hostVote?.option_index;
-  const hostAnswers = hostCanAnswer ? `<div class="host-answer-card"><div><strong>Your answer</strong><span>${hostAnswer === null || hostAnswer === undefined ? 'Lock in your answer here. It stays private until the reveal.' : `Locked: ${'ABCD'[hostAnswer]}`}</span></div><div class="host-answer-grid">${q.options.map((option, index) => `<button class="host-answer ${hostAnswer === index ? 'selected' : ''}" type="button" data-host-option="${index}" ${hostAnswer !== null && hostAnswer !== undefined ? 'disabled' : ''}><span>${'ABCD'[index]}</span><span>${escapeHtml(option)}</span></button>`).join('')}</div></div>` : '';
+  const answerGrid = q.options.map((option, index) => {
+    const selected = hostCanAnswer && hostAnswer === index;
+    const buttonClass = hostCanAnswer ? `button opt host-board-answer ${selected ? 'selected' : ''}` : 'opt';
+    const buttonAttrs = hostCanAnswer
+      ? ` type="button" data-host-option="${index}" aria-pressed="${selected}" ${hostAnswer !== null && hostAnswer !== undefined ? 'disabled' : ''}`
+      : '';
+    return `<${hostCanAnswer ? 'button' : 'div'} class="${buttonClass}"${buttonAttrs}><span class="letter">${'ABCD'[index]}</span><span>${escapeHtml(option)}</span></${hostCanAnswer ? 'button' : 'div'}>`;
+  }).join('');
   screenEl.innerHTML = `<div class="game-layout">
     <section class="question-panel">
        ${hostNotice(state)}
        <div class="round-meta"><p class="eyebrow" style="margin:0;">Round ${state.roundNumber} / ${state.totalRounds}</p><span class="pill pill--accent" id="alive-count">${alive} alive</span></div>
       <div class="question-heading"><h1>${escapeHtml(q.question)}</h1></div>
-      <div class="answer-grid">${q.options.map((option, index) => `<div class="opt"><span class="letter">${'ABCD'[index]}</span><span>${escapeHtml(option)}</span></div>`).join('')}</div>
+      <div class="answer-grid">${answerGrid}</div>
       <div class="timer-row"><span id="host-vote-count">${answered}/${alive} locked in</span><span id="host-time-left" class="time-left ${state.timeLeft <= 5 ? 'time-left--urgent' : ''}">${state.timeLeft}s left</span></div>
       <div class="progress-track"><div class="progress-fill" id="host-vote-progress" style="width:${pct}%"></div></div>
-       ${hostAnswers}
        <div class="actions"><span class="small">${hostCanAnswer ? 'Your answer is private until the reveal.' : state.hostPlaying ? 'Answer from the separate player tab.' : 'Viewers answer on the join page.'}</span><button id="btn-force">Reveal it!</button></div>
     </section>
     ${renderPlayerRoster(state, false, state.kickEnabled)}
