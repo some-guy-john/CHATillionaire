@@ -11,6 +11,7 @@ for (const asset of ['assets/favicon.svg', 'assets/share-card.svg']) {
 
 const host = read('index.html');
 const join = read('join.html');
+const styles = read('css/style.css');
 for (const page of [host, join]) {
   for (const required of ['rel="canonical"', 'property="og:image"', 'name="twitter:card"', 'assets/favicon.svg']) {
     if (!page.includes(required)) fail(`Page metadata is missing: ${required}`);
@@ -19,6 +20,10 @@ for (const page of [host, join]) {
 
 if (host.indexOf('js/gags.js') > host.indexOf('js/game.js')) {
   fail('The gag module must load before game.js.');
+}
+if (!host.includes('class="wrap host-wrap"')) fail('Host page is missing its wide layout wrapper.');
+for (const required of ['.host-wrap { width: min(100% - 48px, 1480px); }', 'grid-template-columns: minmax(0, 1fr) 300px', '.host-wrap .player-list { display: grid;']) {
+  if (!styles.includes(required)) fail(`Host layout rule is missing: ${required}`);
 }
 if (!read('js/supabase-client.js').includes('The game service did not load.')) {
   fail('Supabase dependency fallback is missing.');

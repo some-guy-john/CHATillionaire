@@ -70,6 +70,8 @@ button { -webkit-tap-highlight-color: transparent; }
   padding: 30px 0 70px;
 }
 
+.host-wrap { width: min(100% - 48px, 1480px); }
+
 .topbar {
   display: flex;
   align-items: center;
@@ -152,8 +154,8 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .game-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 245px;
-  gap: 27px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: clamp(28px, 3vw, 48px);
   align-items: start;
 }
 
@@ -514,7 +516,11 @@ button:disabled { filter: grayscale(0.6); opacity: 0.48; cursor: not-allowed; }
 
 .round-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .question-heading h1 { max-width: 830px; margin-bottom: 28px; }
+.host-wrap .question-heading h1 { max-width: 1080px; font-size: clamp(38px, 4.5vw, 68px); }
 .answer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.host-wrap .answer-grid { gap: clamp(14px, 1.4vw, 22px); }
+.host-wrap .opt { min-height: clamp(86px, 8vw, 118px); padding: 18px 20px; font-size: clamp(16px, 1.35vw, 21px); }
+.host-wrap .opt .letter { width: 44px; height: 44px; font-size: 19px; }
 
 .opt { display: flex; align-items: center; min-height: 73px; gap: 14px; padding: 13px 16px; border: 3px solid var(--line); border-radius: 16px; background: var(--purple-light); box-shadow: 4px 5px 0 var(--line); color: var(--ink); font-size: 15px; font-weight: 800; transition: transform 130ms ease, box-shadow 130ms ease; }
 .opt:nth-child(2) { background: #dff8ff; }
@@ -701,8 +707,14 @@ code { padding: 3px 7px; border: 2px solid var(--line); border-radius: 6px; back
   to { opacity: 1; transform: scale(1) rotate(-0.7deg); }
 }
 
+@media (max-width: 980px) {
+  .game-layout { grid-template-columns: 1fr; }
+  .players-panel { position: static; }
+  .host-wrap .player-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); column-gap: 18px; }
+}
+
 @media (max-width: 680px) {
-  .wrap { width: min(100% - 24px, 560px); padding-top: 18px; }
+  .wrap, .host-wrap { width: min(100% - 24px, 560px); padding-top: 18px; }
   .topbar { align-items: flex-start; margin-bottom: 24px; }
   .brand-mark { width: 43px; height: 43px; border-radius: 13px; font-size: 23px; }
   .brand-copy strong { font-size: 16px; }
