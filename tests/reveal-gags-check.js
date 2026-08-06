@@ -26,6 +26,9 @@ const context = {
 const source = `${fs.readFileSync('js/gags.js', 'utf8')}
 ${fs.readFileSync('js/main.js', 'utf8')}
 globalThis.__renderReveal = renderReveal;`;
+const styles = fs.readFileSync('css/style.css', 'utf8');
+if (!styles.includes('.reveal-spotlight {\n  position: absolute;')) throw new Error('Reveal spotlight is still affecting page layout.');
+if (!styles.includes('.reveal-panel { position: relative; }')) throw new Error('Reveal panel is missing the spotlight positioning context.');
 vm.runInNewContext(source, context);
 
 const players = Array.from({ length: 8 }, (_, index) => ({

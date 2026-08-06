@@ -158,6 +158,7 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 .question-panel { min-width: 0; }
+.reveal-panel { position: relative; }
 
 .players-panel {
   position: sticky;
@@ -362,19 +363,26 @@ button { -webkit-tap-highlight-color: transparent; }
 .reveal-verdict span { color: var(--ink-soft); font-size: 12px; font-weight: 700; }
 
 .reveal-spotlight {
-  position: relative;
+  position: absolute;
+  top: clamp(185px, 42%, 305px);
+  left: 50%;
+  z-index: 5;
   display: grid;
   justify-items: center;
   gap: 5px;
-  margin: 23px 0 3px;
+  width: min(100% - 22px, 620px);
+  margin: 0;
   padding: 17px 18px 19px;
+  translate: -50% 0;
   transform: rotate(-0.7deg);
+  transform-origin: center top;
   border: 3px solid var(--line);
   border-radius: 17px;
   background: #ffaaa4;
   box-shadow: 5px 6px 0 var(--line);
   text-align: center;
   animation: spotlight-in 360ms ease-out both;
+  pointer-events: none;
 }
 
 .reveal-spotlight--correct { background: var(--mint); }
@@ -382,7 +390,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .reveal-spotlight--correct .spotlight-eyebrow { color: #18755c; }
 .reveal-spotlight strong { font-family: var(--display); font-size: clamp(20px, 3vw, 28px); line-height: 1; }
 .spotlight-copy { color: var(--ink-soft); font-size: 12px; font-weight: 800; }
-.spotlight-names { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin: 6px 0 4px; }
+.spotlight-names { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin: 6px 0 4px; max-height: min(36vh, 260px); overflow: visible; }
 
 .spotlight-punchline { color: var(--pink-dark); font-family: var(--mono); font-size: 10px; font-weight: 500; text-transform: uppercase; }
 .reveal-spotlight--correct .spotlight-punchline { color: #18755c; }
