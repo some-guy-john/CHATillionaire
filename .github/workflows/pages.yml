@@ -1,4 +1,4 @@
-name: Deploy static site to GitHub Pages
+name: Publish static site to GitHub Pages
 
 on:
   push:
@@ -6,32 +6,37 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: pages-publish
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
         with:
-          path: .
+          fetch-depth: 0
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Publish static files to gh-pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          site_dir="$(mktemp -d)"
+          git archive HEAD | tar -x -C "$site_dir"
+          rm -rf "$site_dir/.github" "$site_dir/supabase" "$site_dir/tests" "$site_dir/README.md" "$site_dir/.gitignore"
+          git -C "$site_dir" init
+          git -C "$site_dir" config user.name "github-actions[bot]"
+          git -C "$site_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$site_dir" add .
+          git -C "$site_dir" commit -m "Publish ${GITHUB_SHA}"
+          git -C "$site_dir" branch -M gh-pages
+          git -C "$site_dir" remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$site_dir" push origin gh-pages --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
