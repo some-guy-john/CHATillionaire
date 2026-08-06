@@ -18,12 +18,12 @@
         <span class="brand-mark"><span>★</span></span>
         <span class="brand-copy"><strong>CHATillionaire</strong><small>join the quiz show</small></span>
       </a>
-      <div id="join-status" class="conn-status conn-status--off"><span class="dot"></span><span id="join-status-label">Finding room</span></div>
+      <div id="join-status" class="conn-status conn-status--off" role="status" aria-live="polite"><span class="dot"></span><span id="join-status-label">Finding room</span></div>
     </header>
-    <main id="join-screen" class="screen"></main>
+    <main id="join-screen" class="screen" aria-busy="true"><p class="small">Finding your room...</p></main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8"></script>
   <script src="js/config.js"></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/join.js"></script>

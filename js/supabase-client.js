@@ -2,12 +2,7 @@ const ChatSupabase = (() => {
   const settings = window.CHATILLIONAIRE_CONFIG;
   const client = window.supabase.createClient(settings.supabaseUrl, settings.supabaseKey);
   let authPromise = null;
-
-  const ROOM_FIELDS = [
-    'id', 'code', 'host_user_id', 'phase', 'lobby_stage', 'lobby_deadline', 'round_number',
-    'total_rounds', 'timer_seconds', 'speedup_enabled', 'sfx_enabled', 'current_question', 'round_started_at',
-    'round_deadline', 'reveal_complete', 'created_at', 'updated_at'
-  ].join(',');
+  const RPC_TIMEOUT_MS = 12000;
 
   function fail(error) {
     if (error) throw new Error(error.message || 'Supabase request failed.');
@@ -19,235 +14,77 @@ const ChatSupabase = (() => {
         const { data: sessionData, error: sessionError } = await client.auth.getSession();
         fail(sessionError);
         if (sessionData.session?.user) return sessionData.session.user;
-
         const { data, error } = await client.auth.signInAnonymously();
         fail(error);
         return data.user;
-      })();
+      })().finally(() => { authPromise = null; });
     }
     return authPromise;
   }
 
-  function randomCode() {
-    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
-  }
-
-  async function createRoom(config) {
-    const user = await ensureAuth();
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const { data, error } = await client.from('rooms').insert({
-        code: randomCode(),
-        host_user_id: user.id,
-        phase: 'lobby',
-        lobby_stage: 'waiting',
-        lobby_deadline: new Date(Date.now() + 300000).toISOString(),
-        total_rounds: config.totalRounds,
-        timer_seconds: config.timerSeconds,
-        speedup_enabled: config.speedupEnabled,
-        sfx_enabled: config.sfxEnabled
-      }).select(ROOM_FIELDS).single();
-      if (!error) return data;
-      if (error.code !== '23505') fail(error);
-    }
-    throw new Error('Could not create a unique room. Try again.');
-  }
-
-  async function getRoomByCode(code) {
+  async function rpc(name, parameters = {}) {
     await ensureAuth();
-    const { data, error } = await client.from('rooms')
-      .select(ROOM_FIELDS)
-      .eq('code', String(code).trim().toUpperCase())
-      .maybeSingle();
+    const request = client.rpc(name, parameters);
+    const timeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('The server took too long to respond.')), RPC_TIMEOUT_MS);
+    });
+    const { data, error } = await Promise.race([request, timeout]);
     fail(error);
     return data;
   }
 
-  async function getRoom(roomId) {
-    const { data, error } = await client.from('rooms')
-      .select(ROOM_FIELDS)
-      .eq('id', roomId)
-      .single();
-    fail(error);
-    return data;
+  function createRoom(config, creationToken) {
+    return rpc('create_room', {
+      p_total_rounds: config.totalRounds,
+      p_timer_seconds: config.timerSeconds,
+      p_speedup_enabled: config.speedupEnabled,
+      p_sfx_enabled: config.sfxEnabled,
+      p_creation_token: creationToken
+    });
   }
 
-  async function updateRoom(roomId, changes) {
-    const { data, error } = await client.from('rooms')
-      .update(changes)
-      .eq('id', roomId)
-      .select(ROOM_FIELDS)
-      .single();
-    fail(error);
-    return data;
+  function getHostState(roomId) {
+    return rpc('get_host_state', { p_room_id: roomId });
   }
 
-  async function getPlayers(roomId) {
-    const { data, error } = await client.from('players')
-      .select('id, room_id, user_id, nickname, alive, score, joined_at')
-      .eq('room_id', roomId)
-      .order('joined_at', { ascending: true });
-    fail(error);
-    return data || [];
+  function joinRoom(code, nickname) {
+    return rpc('join_room', { p_code: String(code).trim().toUpperCase(), p_nickname: nickname });
   }
 
-  async function getMyPlayer(roomId) {
-    const user = await ensureAuth();
-    const { data, error } = await client.from('players')
-      .select('id, room_id, user_id, nickname, alive, score, joined_at')
-      .eq('room_id', roomId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    fail(error);
-    return data;
+  function getPlayerState(code) {
+    return rpc('get_player_state', { p_code: String(code).trim().toUpperCase() });
   }
 
-  async function joinRoom(code, nickname) {
-    const user = await ensureAuth();
-    const room = await getRoomByCode(code);
-    if (!room) throw new Error('That room code does not exist.');
-    if (room.phase !== 'lobby') throw new Error('This room has already started.');
-
-    const existingPlayer = await getMyPlayer(room.id);
-    if (existingPlayer) return { room, player: existingPlayer };
-
-    const cleanName = String(nickname).trim().replace(/\s+/g, ' ');
-    if (cleanName.length < 2 || cleanName.length > 18) {
-      throw new Error('Pick a nickname between 2 and 18 characters.');
-    }
-
-    const { data, error } = await client.from('players').insert({
-      room_id: room.id,
-      user_id: user.id,
-      nickname: cleanName,
-      normalized_nickname: cleanName.toLowerCase()
-    }).select('id, room_id, user_id, nickname, alive, score, joined_at').single();
-    if (error?.code === '23505') throw new Error('That nickname is already taken in this room. Pick another.');
-    fail(error);
-    return { room, player: data };
+  function tickRoom(roomId) {
+    return rpc('room_tick', { p_room_id: roomId });
   }
 
-  async function getVotes(roomId, roundNumber) {
-    const { data, error } = await client.from('votes')
-      .select('id, player_id, round_number, option_index, submitted_at')
-      .eq('room_id', roomId)
-      .eq('round_number', roundNumber);
-    fail(error);
-    return data || [];
+  function submitVote(roomId, optionIndex) {
+    return rpc('submit_vote', { p_room_id: roomId, p_option_index: optionIndex });
   }
 
-  async function getRound(roomId, roundNumber) {
-    const { data, error } = await client.from('room_rounds')
-      .select('id, room_id, round_number, question_id, question_public, answer_index, started_at, round_deadline')
-      .eq('room_id', roomId)
-      .eq('round_number', roundNumber)
-      .single();
-    fail(error);
-    return data;
+  function forceCloseRound(roomId) {
+    return rpc('force_close_round', { p_room_id: roomId });
   }
 
-  async function getMyVote(roomId, playerId, roundNumber) {
-    const { data, error } = await client.from('votes')
-      .select('option_index, submitted_at')
-      .eq('room_id', roomId)
-      .eq('player_id', playerId)
-      .eq('round_number', roundNumber)
-      .maybeSingle();
-    fail(error);
-    return data;
+  function finishReveal(roomId) {
+    return rpc('finish_reveal', { p_room_id: roomId });
   }
 
-  async function getMyOutcome(roomId, playerId, roundNumber) {
-    const { data, error } = await client.from('player_round_results')
-      .select('round_number, survived, vote_index, message')
-      .eq('room_id', roomId)
-      .eq('player_id', playerId)
-      .eq('round_number', roundNumber)
-      .maybeSingle();
-    fail(error);
-    return data;
-  }
-
-  async function submitVote(roomId, playerId, roundNumber, optionIndex) {
-    const user = await ensureAuth();
-    const { data, error } = await client.from('votes').insert({
-      room_id: roomId,
-      player_id: playerId,
-      user_id: user.id,
-      round_number: roundNumber,
-      option_index: optionIndex
-    }).select('option_index, submitted_at').single();
-    fail(error);
-    return data;
-  }
-
-  async function createRound(round) {
-    const { data, error } = await client.from('room_rounds').insert(round).select('id').single();
-    fail(error);
-    return data;
-  }
-
-  async function createOutcome(outcome) {
-    const { data, error } = await client.from('player_round_results')
-      .insert(outcome)
-      .select('round_number, survived, vote_index, message')
-      .single();
-    fail(error);
-    return data;
-  }
-
-  async function getOutcomes(roomId, roundNumber) {
-    const { data, error } = await client.from('player_round_results')
-      .select('player_id, user_id, round_number, survived, vote_index, message')
-      .eq('room_id', roomId)
-      .eq('round_number', roundNumber);
-    fail(error);
-    return data || [];
-  }
-
-  async function updatePlayer(playerId, changes) {
-    const { data, error } = await client.from('players')
-      .update(changes)
-      .eq('id', playerId)
-      .select('id, room_id, user_id, nickname, alive, score, joined_at')
-      .single();
-    fail(error);
-    return data;
-  }
-
-  function subscribeRoom(roomId, callback) {
-    const channel = client.channel(`chatillionaire-room-${roomId}-${Math.random()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, callback)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_id=eq.${roomId}` }, callback)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'votes', filter: `room_id=eq.${roomId}` }, callback)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_round_results', filter: `room_id=eq.${roomId}` }, callback);
-    channel.subscribe();
-    return channel;
-  }
-
-  async function unsubscribe(channel) {
-    if (channel) await client.removeChannel(channel);
+  function endRoom(roomId) {
+    return rpc('end_room', { p_room_id: roomId });
   }
 
   return {
     ensureAuth,
     createRoom,
-    getRoomByCode,
-    getRoom,
-    updateRoom,
-    getPlayers,
-    getMyPlayer,
+    getHostState,
     joinRoom,
-    getVotes,
-    getRound,
-    getMyVote,
-    getMyOutcome,
+    getPlayerState,
+    tickRoom,
     submitVote,
-    createRound,
-    createOutcome,
-    getOutcomes,
-    updatePlayer,
-    subscribeRoom,
-    unsubscribe
+    forceCloseRound,
+    finishReveal,
+    endRoom
   };
 })();

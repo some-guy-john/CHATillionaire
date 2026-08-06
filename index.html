@@ -18,15 +18,15 @@
         <span class="brand-mark"><span>★</span></span>
         <span class="brand-copy"><strong>CHATillionaire</strong><small>the chat quiz show</small></span>
       </a>
-      <div id="conn-status" class="conn-status conn-status--off">
+      <div id="conn-status" class="conn-status conn-status--off" role="status" aria-live="polite">
         <span class="dot"></span><span id="conn-label">Chat is snoozing</span>
       </div>
     </header>
 
-    <main id="screen" class="screen"></main>
+    <main id="screen" class="screen" aria-busy="true"><p class="small">Loading the game...</p></main>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8"></script>
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/sfx.js"></script>

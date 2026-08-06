@@ -6,9 +6,8 @@ missed answer eliminates you, and the last player standing wins.
 
 ## Run it locally
 
-Because the app loads `data/questions.json` with `fetch()`, you can't just
-double-click `index.html` (the `file://` protocol blocks that request). Serve
-the folder instead:
+The app uses browser modules, authentication, and network requests, so serve the
+folder rather than opening `index.html` directly with the `file://` protocol:
 
 ```bash
 npx serve .
@@ -26,8 +25,13 @@ Then open the printed local URL in your browser.
 
 1. Create a free Supabase project and enable **Authentication → Providers →
    Anonymous sign-ins**.
-2. Open **SQL Editor**, paste `supabase/schema.sql`, and run it.
-3. The public project URL and publishable key are in `js/config.js`. The
+2. Open **SQL Editor**, paste `supabase/schema.sql`, and run it. This pre-launch
+   migration deletes any existing prototype rooms and replaces the permissive
+   policies with an RPC-only security model.
+3. Paste the local, Git-ignored `supabase/questions-seed.sql` into SQL Editor and
+   run it. Keep a private backup; it contains the correct answers and must never
+   be committed or deployed through GitHub Pages.
+4. The public project URL and publishable key are in `js/config.js`. The
    publishable key is safe to ship in a static frontend; never put a secret or
    `service_role` key there.
 
@@ -52,21 +56,23 @@ Then open the printed local URL in your browser.
 
 ## Editing the question bank
 
-`data/questions.json` holds 10 rounds of 20 questions each — feel free to add
-more, edit, or regenerate with an LLM. See the format:
+Questions live in the private `private.questions` Supabase table. Correct
+answers must not be stored in any file committed to this repository. Add or edit
+questions through a private SQL seed using this shape:
 
 ```json
 {
   "id": "r1-001",
   "question": "What is the capital of France?",
   "options": ["Berlin", "Madrid", "Paris", "Rome"],
-  "answerIndex": 2
+  "answer_index": 2,
+  "difficulty": 1
 }
 ```
 
-`answerIndex` is 0-based (0 = A, 1 = B, 2 = C, 3 = D). One question is picked
-at random per round per session, so re-running the game gives different
-questions each time.
+`answer_index` is 0-based (0 = A, 1 = B, 2 = C, 3 = D). The database picks a
+random question for the current difficulty without returning the answer to
+players.
 
 ## Deploying to GitHub Pages (free hosting)
 
@@ -83,5 +89,8 @@ No build step, no server, no cost.
 
 - Optional goofy game-show sound effects use the browser's Web Audio API and do
   not load any external audio files.
-- Rooms, players, votes, and scores are synchronized through Supabase. The host
-  room is remembered in that browser so refreshing the host page can restore it.
+- Rooms, players, votes, scores, and phase transitions are synchronized through
+  transactional Supabase RPCs. The host room is remembered in that browser so
+  refreshing the host page can restore it.
+- Browser clients have no direct table access. Questions and answers remain in
+  the private schema; only the active question text and options are returned.

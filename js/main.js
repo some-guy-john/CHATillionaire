@@ -1,6 +1,7 @@
 const screenEl = document.getElementById('screen');
 const connStatusEl = document.getElementById('conn-status');
 const connLabelEl = document.getElementById('conn-label');
+let currentViewKey = '';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, character => ({
@@ -27,9 +28,10 @@ function formatSeconds(seconds) {
 }
 
 function setConnection(connected) {
-  connStatusEl.classList.toggle('conn-status--on', connected);
-  connStatusEl.classList.toggle('conn-status--off', !connected);
-  connLabelEl.textContent = connected ? 'Room is live!' : 'Getting things ready';
+  const mode = typeof connected === 'string' ? connected : connected ? 'online' : 'offline';
+  connStatusEl.classList.toggle('conn-status--on', mode === 'online');
+  connStatusEl.classList.toggle('conn-status--off', mode !== 'online');
+  connLabelEl.textContent = mode === 'online' ? 'Room is live!' : mode === 'reconnecting' ? 'Reconnecting...' : mode === 'connecting' ? 'Connecting...' : 'Getting things ready';
 }
 
 function renderPlayerRoster(state, showResults = false) {
@@ -60,6 +62,8 @@ function renderPlayerRoster(state, showResults = false) {
       status = '<span class="vote-result vote-result--bad">Bonked!</span>';
     } else if (isAlive && voted) {
       status = '<span class="vote-check" title="Vote locked in" aria-label="Vote locked in">&#10003;</span>';
+    } else if (!isAlive) {
+      status = '<span class="vote-result vote-result--bad">Eliminated</span>';
     }
 
     const safeName = escapeHtml(player.name);
@@ -74,7 +78,7 @@ function renderPlayerRoster(state, showResults = false) {
     </div>`;
   }
 
-  return `<aside class="players-panel">
+  return `<aside class="players-panel" id="players-panel">
     <div class="players-heading"><span>Who's still in?</span><strong>${alive.length} alive &middot; ${state.players.length} total</strong></div>
     <div class="player-group-label">Leaderboard &middot; alive first</div>
     <div class="player-list">${rankedPlayers.length ? rankedPlayers.map(player => renderPlayer(player, player.alive)).join('') : '<div class="player-empty">Nobody left standing!</div>'}</div>
@@ -84,20 +88,28 @@ function renderPlayerRoster(state, showResults = false) {
 function copyJoinLink() {
   const link = document.getElementById('join-link');
   if (!link) return;
-  navigator.clipboard?.writeText(link.value).then(() => {
+  const copied = () => {
     const button = document.getElementById('copy-link');
     if (!button) return;
     button.textContent = 'Copied!';
     setTimeout(() => { button.textContent = 'Copy link'; }, 1500);
-  });
+  };
+  const failed = () => {
+    link.focus();
+    link.select();
+    const status = document.getElementById('copy-status');
+    if (status) status.textContent = 'Copy was blocked. The link is selected so you can copy it manually.';
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link.value).then(copied, failed);
+  else failed();
 }
 
 function renderSetup(state) {
   screenEl.innerHTML = `
     <div class="intro-layout">
-      <div class="intro-copy">
+      <form class="intro-copy" id="setup-form">
         <p class="eyebrow">Welcome to the quiz party</p>
-        <h2>Put chat in the <em>hot seat!</em></h2>
+        <h1>Put chat in the <em>hot seat!</em></h1>
         <p class="small">Create a room, share the player link, and let your audience battle from their own phones while you run the show.</p>
         <div class="row">
           <div class="field">
@@ -117,9 +129,9 @@ function renderSetup(state) {
           <input id="in-sfx" type="checkbox" ${state.config.sfxEnabled ? 'checked' : ''}>
           <label for="in-sfx">Play goofy game-show sound effects</label>
         </div>
-        <p id="setup-error" class="small setup-error" ${state.error ? '' : 'hidden'}>${escapeHtml(state.error || '')}</p>
-        <button class="primary full" id="btn-create">Make a room!</button>
-      </div>
+        <p id="setup-error" class="small setup-error" role="alert" ${state.error ? '' : 'hidden'}>${escapeHtml(state.error || '')}</p>
+        <button class="primary full" id="btn-create" type="submit">Make a room!</button>
+      </form>
       <aside class="briefing" aria-label="How the game works">
         <div class="briefing-heading"><span>How to play</span><span>no login fuss</span></div>
         <div class="briefing-list">
@@ -131,7 +143,9 @@ function renderSetup(state) {
     </div>
   `;
 
-  document.getElementById('btn-create').addEventListener('click', async () => {
+  document.getElementById('setup-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!event.currentTarget.reportValidity()) return;
     const button = document.getElementById('btn-create');
     button.disabled = true;
     try {
@@ -157,25 +171,38 @@ function renderLobby(state) {
     : `Waiting for player two. This room will start solo after ${formatSeconds(state.lobbySeconds)}.`;
   screenEl.innerHTML = `
     <p class="eyebrow">Room ${escapeHtml(state.roomCode)}</p>
-    <h2>${countdown ? 'The countdown is on!' : 'Send in the players!'}</h2>
-    <p class="small" style="margin:0 0 22px;">${lobbyText}</p>
+    <h1>${countdown ? 'The countdown is on!' : 'Send in the players!'}</h1>
+    <p class="small" id="lobby-copy" style="margin:0 0 22px;">${lobbyText}</p>
     <div class="share-card">
-      <span class="share-label">Player join link</span>
+      <label class="share-label" for="join-link">Player join link</label>
       <div class="share-controls"><input id="join-link" type="text" readonly value="${escapeHtml(state.joinUrl)}"><button id="copy-link">Copy link</button></div>
+      <span id="copy-status" class="muted" role="status"></span>
       <strong>Room code: ${escapeHtml(state.roomCode)}</strong>
     </div>
-    <div class="list lobby-list">
+    <div class="list lobby-list" id="lobby-player-list">
       ${state.players.length
         ? state.players.map(player => `<div class="list-row"><span class="pname"><span class="avatar">${initials(player.name)}</span><span>${escapeHtml(player.name)}</span></span><span class="pill pill--accent">ready</span></div>`).join('')
         : '<div class="list-row"><span class="muted">It is quiet in here... share the link!</span></div>'}
     </div>
     <div class="live-board">
-      <div class="stat"><strong>${state.players.length}</strong><span>Players in</span></div>
+      <div class="stat"><strong id="lobby-player-count">${state.players.length}</strong><span>Players in</span></div>
       <div class="stat"><strong>${state.totalRounds}</strong><span>Rounds of chaos</span></div>
-      <div class="stat"><strong>${formatSeconds(state.lobbySeconds)}</strong><span>Lobby time</span></div>
+      <div class="stat"><strong id="lobby-time">${formatSeconds(state.lobbySeconds)}</strong><span>Lobby time</span></div>
     </div>
   `;
   document.getElementById('copy-link').addEventListener('click', copyJoinLink);
+}
+
+function updateLobby(state) {
+  const countdown = state.lobbyStage === 'countdown';
+  document.getElementById('lobby-copy').textContent = countdown
+    ? `The room starts in ${formatSeconds(state.lobbySeconds)}. More players can still jump in!`
+    : `Waiting for player two. This room will start solo after ${formatSeconds(state.lobbySeconds)}.`;
+  document.getElementById('lobby-player-count').textContent = state.players.length;
+  document.getElementById('lobby-time').textContent = formatSeconds(state.lobbySeconds);
+  document.getElementById('lobby-player-list').innerHTML = state.players.length
+    ? state.players.map(player => `<div class="list-row"><span class="pname"><span class="avatar">${initials(player.name)}</span><span>${escapeHtml(player.name)}</span></span><span class="pill pill--accent">ready</span></div>`).join('')
+    : '<div class="list-row"><span class="muted">It is quiet in here... share the link!</span></div>';
 }
 
 function renderVoting(state) {
@@ -185,16 +212,34 @@ function renderVoting(state) {
   const pct = alive > 0 ? Math.round((answered / alive) * 100) : 0;
   screenEl.innerHTML = `<div class="game-layout">
     <section class="question-panel">
-      <div class="round-meta"><p class="eyebrow" style="margin:0;">Round ${state.roundNumber} / ${state.totalRounds}</p><span class="pill pill--accent">${alive} alive</span></div>
-      <div class="question-heading"><h2>${escapeHtml(q.question)}</h2></div>
+      <div class="round-meta"><p class="eyebrow" style="margin:0;">Round ${state.roundNumber} / ${state.totalRounds}</p><span class="pill pill--accent" id="alive-count">${alive} alive</span></div>
+      <div class="question-heading"><h1>${escapeHtml(q.question)}</h1></div>
       <div class="answer-grid">${q.options.map((option, index) => `<div class="opt"><span class="letter">${'ABCD'[index]}</span><span>${escapeHtml(option)}</span></div>`).join('')}</div>
-      <div class="timer-row"><span>${answered}/${alive} locked in</span><span class="time-left ${state.timeLeft <= 5 ? 'time-left--urgent' : ''}">${state.timeLeft}s left</span></div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="timer-row"><span id="host-vote-count">${answered}/${alive} locked in</span><span id="host-time-left" class="time-left ${state.timeLeft <= 5 ? 'time-left--urgent' : ''}">${state.timeLeft}s left</span></div>
+      <div class="progress-track"><div class="progress-fill" id="host-vote-progress" style="width:${pct}%"></div></div>
       <div class="actions"><span class="small">Viewers answer on the join page</span><button id="btn-force">Reveal it!</button></div>
     </section>
     ${renderPlayerRoster(state)}
   </div>`;
-  document.getElementById('btn-force').addEventListener('click', () => Game.forceEndRound());
+  document.getElementById('btn-force').addEventListener('click', async event => {
+    event.currentTarget.disabled = true;
+    event.currentTarget.textContent = 'Closing...';
+    try { await Game.forceEndRound(); } catch { event.currentTarget.disabled = false; event.currentTarget.textContent = 'Reveal it!'; }
+  });
+}
+
+function updateVoting(state) {
+  const alive = state.players.filter(player => player.alive).length;
+  const answered = state.votes.size;
+  const pct = alive > 0 ? Math.round((answered / alive) * 100) : 0;
+  document.getElementById('alive-count').textContent = `${alive} alive`;
+  document.getElementById('host-vote-count').textContent = `${answered}/${alive} locked in`;
+  const timer = document.getElementById('host-time-left');
+  timer.textContent = `${state.timeLeft}s left`;
+  timer.classList.toggle('time-left--urgent', state.timeLeft <= 5);
+  document.getElementById('host-vote-progress').style.width = `${pct}%`;
+  const roster = document.getElementById('players-panel');
+  if (roster) roster.outerHTML = renderPlayerRoster(state);
 }
 
 function renderReveal(state) {
@@ -211,18 +256,41 @@ function renderReveal(state) {
   const gagStage = showSpotlight ? `<div class="gag-stage gag-stage--${state.revealGag || 'burn'}" aria-hidden="true"><span class="gag-target">${spotlightCorrect ? 'BIG BRAIN' : 'BAD ANSWER'}</span><span class="gag-prop gag-prop--main">${spotlightCorrect ? '🎉' : state.revealGag === 'kick' ? '👢' : state.revealGag === 'burn' ? '🔥' : state.revealGag === 'trapdoor' ? '⬇' : '🚀'}</span><span class="gag-prop gag-prop--extra">${spotlightCorrect ? '✨' : state.revealGag === 'burn' ? '🔥' : state.revealGag === 'rocket' ? '💨' : '💥'}</span><span class="gag-impact">${spotlightCorrect ? 'YES!' : state.revealGag === 'kick' ? 'POW!' : state.revealGag === 'burn' ? 'HOT!' : state.revealGag === 'trapdoor' ? 'BYE!' : 'WHOOSH!'}</span></div>` : '';
   const spotlight = showSpotlight ? `<div class="reveal-spotlight ${spotlightCorrect ? 'reveal-spotlight--correct' : 'reveal-spotlight--wrong'} gag-${state.revealGag || 'burn'}" role="status">${gagStage}<span class="spotlight-eyebrow">${gagText[0]}</span><strong>${spotlightCorrect ? 'Look at these geniuses!' : `Oh no... ${'ABCD'[lastVerdictIndex]} was a trap!`}</strong><span class="spotlight-copy">${spotlightCorrect ? 'Correctly chosen by:' : `Chosen by ${spotlightVoters.length === 1 ? 'this brave soul' : 'these brave souls'}:`}</span><span class="spotlight-names">${spotlightVoters.map(result => `<span class="spotlight-name gag-${state.revealGag || 'burn'}">${escapeHtml(result.name)}</span>`).join('')}</span><span class="spotlight-punchline">${spotlightCorrect ? 'Absolutely massive brains.' : gagText[1]}</span></div>` : '';
   const countdown = state.autoNextAt ? Math.max(0, Math.ceil((state.autoNextAt - Date.now()) / 1000)) : 4;
+  const gameWillEnd = state.roundNumber >= state.totalRounds || state.players.every(player => !player.alive);
 
-  screenEl.innerHTML = `<div class="game-layout"><section class="question-panel reveal-panel"><p class="eyebrow">${finished ? 'The big reveal!' : showSpotlight ? 'The bonk has landed!' : revealed.size ? 'Ooooh, not that one...' : 'The cards are thinking...'}</p><p class="reveal-mode">${escapeHtml(state.revealMode || 'mystery mode')}</p><h2>${escapeHtml(question.question)}</h2><div class="answer-grid">${question.options.map((option, index) => { const isRevealed = revealed.has(index); const hasVerdict = verdicts.has(index); const correct = index === correctIndex; const voters = state.lastResult.playerResults.filter(result => result.vote === index); const cardClass = hasVerdict ? (correct ? 'is-correct' : 'is-wrong') : isRevealed ? 'is-showing-voters' : 'is-pending'; const count = finished ? ` <span class="vote-count">${state.lastResult.voteCounts[index]} vote${state.lastResult.voteCounts[index] === 1 ? '' : 's'}</span>` : ''; const tag = hasVerdict && correct ? 'Nailed it!' : hasVerdict ? 'Bonked!' : 'Who picked this?'; const voterText = isRevealed ? voters.length ? voters.map(result => `<span class="voter-name">${escapeHtml(result.name)}</span>`).join('<span class="voter-comma">, </span>') : '<span class="voter-name voter-name--nobody">Nobody!</span>' : '<span class="voter-name voter-name--sealed">Vote sealed</span>'; return `<div class="opt reveal-card ${cardClass} ${lastVerdictIndex === index ? 'is-fresh-verdict' : ''}"><span class="letter">${'ABCD'[index]}</span><span class="answer-copy"><strong>${escapeHtml(option)}</strong><span class="voter-line">${tag} <span class="voter-names">${voterText}</span></span>${count}</span></div>`; }).join('')}</div>${spotlight}${finished ? `<div class="reveal-verdict"><strong>${eliminated.length ? `${eliminated.length} player${eliminated.length === 1 ? '' : 's'} got bonked.` : 'Everybody nailed it!'}</strong><span>Next question in ${countdown}s.</span></div>` : '<div class="reveal-dots" aria-label="Reveal in progress"><span></span><span></span><span></span></div>'}</section>${renderPlayerRoster(state, finished)}</div>`;
+  screenEl.innerHTML = `<div class="game-layout"><section class="question-panel reveal-panel"><p class="eyebrow">${finished ? 'The big reveal!' : showSpotlight ? 'The bonk has landed!' : revealed.size ? 'Ooooh, not that one...' : 'The cards are thinking...'}</p><p class="reveal-mode">${escapeHtml(state.revealMode || 'mystery mode')}</p><h1>${escapeHtml(question.question)}</h1><div class="answer-grid">${question.options.map((option, index) => { const isRevealed = revealed.has(index); const hasVerdict = verdicts.has(index); const correct = index === correctIndex; const voters = state.lastResult.playerResults.filter(result => result.vote === index); const cardClass = hasVerdict ? (correct ? 'is-correct' : 'is-wrong') : isRevealed ? 'is-showing-voters' : 'is-pending'; const count = finished ? ` <span class="vote-count">${state.lastResult.voteCounts[index]} vote${state.lastResult.voteCounts[index] === 1 ? '' : 's'}</span>` : ''; const tag = hasVerdict && correct ? 'Nailed it!' : hasVerdict ? 'Bonked!' : 'Who picked this?'; const voterText = isRevealed ? voters.length ? voters.map(result => `<span class="voter-name">${escapeHtml(result.name)}</span>`).join('<span class="voter-comma">, </span>') : '<span class="voter-name voter-name--nobody">Nobody!</span>' : '<span class="voter-name voter-name--sealed">Vote sealed</span>'; return `<div class="opt reveal-card ${cardClass} ${lastVerdictIndex === index ? 'is-fresh-verdict' : ''}"><span class="letter">${'ABCD'[index]}</span><span class="answer-copy"><strong>${escapeHtml(option)}</strong><span class="voter-line">${tag} <span class="voter-names">${voterText}</span></span>${count}</span></div>`; }).join('')}</div>${spotlight}${finished ? `<div class="reveal-verdict"><strong>${eliminated.length ? `${eliminated.length} player${eliminated.length === 1 ? '' : 's'} got bonked.` : 'Everybody nailed it!'}</strong><span>${gameWillEnd ? 'Final results' : 'Next question'} in <span id="auto-next-countdown">${countdown}</span>s.</span></div>` : '<div class="reveal-dots" aria-label="Reveal in progress"><span></span><span></span><span></span></div>'}</section>${renderPlayerRoster(state, finished)}</div>`;
 }
 
 function renderGameover(state) {
   const ranked = [...state.players].sort((a, b) => b.score - a.score || Number(b.alive) - Number(a.alive));
-  const winner = ranked[0];
-  screenEl.innerHTML = `<p class="eyebrow">That's all, folks!</p><div class="winner-panel"><span class="winner-badge">#1</span><h2>${winner ? `${escapeHtml(winner.name)} is the big brain!` : 'No winner this time'}</h2></div><div class="list">${ranked.map((player, index) => `<div class="list-row"><span class="pname"><span class="rank-number">${String(index + 1).padStart(2, '0')}</span><span class="avatar ${player.alive ? '' : 'dead'}">${initials(player.name)}</span><span>${escapeHtml(player.name)}${!player.alive ? ' <span class="muted">eliminated</span>' : ''}</span></span><span class="score">${player.score} pts</span></div>`).join('')}</div>`;
+  const winner = ranked.find(player => player.alive) || null;
+  screenEl.innerHTML = `<p class="eyebrow">That's all, folks!</p><div class="winner-panel"><span class="winner-badge">#1</span><h1>${winner ? `${escapeHtml(winner.name)} is the big brain!` : 'No winner this time'}</h1></div><div class="list">${ranked.map((player, index) => `<div class="list-row"><span class="pname"><span class="rank-number">${String(index + 1).padStart(2, '0')}</span><span class="avatar ${player.alive ? '' : 'dead'}">${initials(player.name)}</span><span>${escapeHtml(player.name)}${!player.alive ? ' <span class="muted">eliminated</span>' : ''}</span></span><span class="score">${player.score} pts</span></div>`).join('')}</div><button class="primary full" id="btn-new-room" style="margin-top:24px;">Create another room</button>`;
+  document.getElementById('btn-new-room').addEventListener('click', async event => {
+    event.currentTarget.disabled = true;
+    event.currentTarget.textContent = 'Ending room...';
+    try { await Game.createAnotherRoom(); } catch { event.currentTarget.disabled = false; event.currentTarget.textContent = 'Create another room'; }
+  });
 }
 
 function render(state) {
-  setConnection(Boolean(state.room));
+  setConnection(state.connection);
+  const revealKey = state.phase === 'reveal'
+    ? `${state.roundNumber}-${state.revealComplete}-${[...state.revealedIndices].join('')}-${[...state.revealVerdicts].join('')}-${state.revealLastVerdictIndex}-${state.revealGag}`
+    : '';
+  const key = state.phase === 'reveal' ? `reveal-${revealKey}` : `${state.phase}-${state.roundNumber}-${state.lobbyStage}`;
+
+  if (currentViewKey === key) {
+    if (state.phase === 'lobby') updateLobby(state);
+    else if (state.phase === 'voting') updateVoting(state);
+    else if (state.phase === 'reveal' && state.revealComplete) {
+      const countdown = document.getElementById('auto-next-countdown');
+      if (countdown) countdown.textContent = Math.max(0, Math.ceil((state.autoNextAt - Date.now()) / 1000));
+    }
+    return;
+  }
+
+  currentViewKey = key;
+  screenEl.removeAttribute('aria-busy');
   if (state.phase === 'setup') renderSetup(state);
   else if (state.phase === 'lobby') renderLobby(state);
   else if (state.phase === 'voting') renderVoting(state);
@@ -231,14 +299,6 @@ function render(state) {
 }
 
 Game.onChange(render);
-
-fetch('data/questions.json')
-  .then(response => response.json())
-  .then(async bank => {
-    Game.setQuestionBank(bank);
-    const restored = await Game.restoreRoom();
-    if (!restored) render(Game.getState());
-  })
-  .catch(() => {
-    screenEl.innerHTML = '<p class="small setup-error">Could not load the question bank. Run this through a local server or GitHub Pages.</p>';
-  });
+Game.restoreRoom().then(restored => {
+  if (!restored) render(Game.getState());
+});
