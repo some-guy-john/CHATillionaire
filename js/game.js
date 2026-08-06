@@ -16,6 +16,8 @@ const Game = (() => {
   let revealMode = '';
   let revealLastVerdictIndex = null;
   let revealGag = '';
+  let revealVariant = null;
+  let revealLine = '';
   let revealComplete = false;
   let revealRoomRound = null;
   let revealHandle = null;
@@ -60,6 +62,8 @@ const Game = (() => {
       revealVerdicts,
       revealLastVerdictIndex,
       revealGag,
+      revealVariant,
+      revealLine,
       revealMode,
       revealComplete,
       lobbyStage: room?.lobby_stage || 'waiting',
@@ -90,6 +94,7 @@ const Game = (() => {
 
   async function createRoom(nextConfig) {
     stopPolling();
+    cancelRestore();
     errorMessage = '';
     normalizeConfig(nextConfig);
     connection = 'connecting';
@@ -111,6 +116,7 @@ const Game = (() => {
   }
 
   async function restoreRoom() {
+    restoreHandle = null;
     const saved = readHostRoom();
     if (!saved) return false;
     connection = 'connecting';
@@ -272,6 +278,8 @@ const Game = (() => {
     revealStep = 0;
     revealLastVerdictIndex = null;
     revealGag = '';
+    revealVariant = null;
+    revealLine = '';
     SFX.play('reveal-start');
     revealHandle = setTimeout(() => advanceReveal(plan.delays), 800);
   }
@@ -291,7 +299,9 @@ const Game = (() => {
     revealHandle = null;
     revealVerdicts.add(index);
     revealLastVerdictIndex = index;
-    revealGag = index === lastResult.correctIndex ? 'confetti' : ['kick', 'burn', 'trapdoor', 'rocket'][(room.round_number + index + revealStep) % 4];
+    revealGag = index === lastResult.correctIndex ? 'crown' : Gags.deal();
+    revealVariant = Gags.rollVariant(revealGag);
+    revealLine = Gags.line(revealGag);
     SFX.play(index === lastResult.correctIndex ? 'correct' : 'wrong');
     emit();
     const hasVoters = (lastResult.voteCounts[index] || 0) > 0;
@@ -313,6 +323,8 @@ const Game = (() => {
     revealMode = 'final standings';
     revealLastVerdictIndex = null;
     revealGag = '';
+    revealVariant = null;
+    revealLine = '';
     revealComplete = true;
   }
 
@@ -331,6 +343,8 @@ const Game = (() => {
     revealMode = '';
     revealLastVerdictIndex = null;
     revealGag = '';
+    revealVariant = null;
+    revealLine = '';
     revealComplete = false;
     revealRoomRound = null;
   }
@@ -347,6 +361,10 @@ const Game = (() => {
     connection = 'offline';
     errorMessage = '';
     pendingCreationToken = null;
+    cancelRestore();
+  }
+
+  function cancelRestore() {
     if (restoreHandle) clearTimeout(restoreHandle);
     restoreHandle = null;
   }

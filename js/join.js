@@ -95,8 +95,8 @@ async function discoverRoom() {
     return;
   }
   setStatus('connecting', 'Finding room');
+  const sequence = ++requestSequence;
   try {
-    const sequence = ++requestSequence;
     const initial = await ChatSupabase.getPlayerState(roomCode);
     if (!initial?.room) throw new Error('That room does not exist.');
     applySnapshot(initial, sequence);

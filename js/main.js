@@ -288,10 +288,14 @@ function renderReveal(state) {
   const spotlightVoters = lastVerdictIndex === null || lastVerdictIndex === undefined ? [] : state.lastResult.playerResults.filter(result => result.vote === lastVerdictIndex);
   const showSpotlight = !finished && lastVerdictIndex !== null && lastVerdictIndex !== undefined && spotlightVoters.length > 0;
   const spotlightCorrect = lastVerdictIndex === correctIndex;
-  const gagCopy = { kick: ['KICKED OFF THE SHOW', 'Please exit via the nearest cartoon door.'], burn: ['TOASTED!', 'That answer was served extra crispy.'], trapdoor: ['TRAPDOOR ACTIVATED', 'The floor has opinions.'], rocket: ['LAUNCHED INTO ORBIT', 'See you in the next dimension.'], confetti: ['BIG BRAIN MOMENT', 'Correctly chosen by:'] };
-  const gagText = gagCopy[state.revealGag] || gagCopy.burn;
-  const gagStage = showSpotlight ? `<div class="gag-stage gag-stage--${state.revealGag || 'burn'}" aria-hidden="true"><span class="gag-target">${spotlightCorrect ? 'BIG BRAIN' : 'BAD ANSWER'}</span><span class="gag-prop gag-prop--main">${spotlightCorrect ? '🎉' : state.revealGag === 'kick' ? '👢' : state.revealGag === 'burn' ? '🔥' : state.revealGag === 'trapdoor' ? '⬇' : '🚀'}</span><span class="gag-prop gag-prop--extra">${spotlightCorrect ? '✨' : state.revealGag === 'burn' ? '🔥' : state.revealGag === 'rocket' ? '💨' : '💥'}</span><span class="gag-impact">${spotlightCorrect ? 'YES!' : state.revealGag === 'kick' ? 'POW!' : state.revealGag === 'burn' ? 'HOT!' : state.revealGag === 'trapdoor' ? 'BYE!' : 'WHOOSH!'}</span></div>` : '';
-  const spotlight = showSpotlight ? `<div class="reveal-spotlight ${spotlightCorrect ? 'reveal-spotlight--correct' : 'reveal-spotlight--wrong'} gag-${state.revealGag || 'burn'}" role="status">${gagStage}<span class="spotlight-eyebrow">${gagText[0]}</span><strong>${spotlightCorrect ? 'Look at these geniuses!' : `Oh no... ${'ABCD'[lastVerdictIndex]} was a trap!`}</strong><span class="spotlight-copy">${spotlightCorrect ? 'Correctly chosen by:' : `Chosen by ${spotlightVoters.length === 1 ? 'this brave soul' : 'these brave souls'}:`}</span><span class="spotlight-names">${spotlightVoters.map(result => `<span class="spotlight-name gag-${state.revealGag || 'burn'}">${escapeHtml(result.name)}</span>`).join('')}</span><span class="spotlight-punchline">${spotlightCorrect ? 'Absolutely massive brains.' : gagText[1]}</span></div>` : '';
+  const gag = Gags.get(state.revealGag);
+  const scoreByName = new Map(state.players.map(player => [playerKey(player.name), player.score]));
+  const variantStyle = state.revealVariant ? Object.entries(state.revealVariant.vars).map(([key, value]) => `${key}:${value}`).join(';') : '';
+  const variantFlip = state.revealVariant && state.revealVariant.flip ? ' flip' : '';
+  const shownVoters = spotlightVoters.slice(0, 6);
+  const extraVoters = spotlightVoters.length - shownVoters.length;
+  const victimCard = result => `<span class="victim gag-${state.revealGag}${variantFlip}" style="${variantStyle}"><span class="victim-card"><span class="vface">${initials(result.name)}</span><span class="vname">${escapeHtml(result.name)}</span><span class="vpts">${scoreByName.get(playerKey(result.name)) || 0} pts</span></span><span class="fx" aria-hidden="true"><span class="prop p1">${gag.props[0] || ''}</span><span class="prop p2">${gag.props[1] || ''}</span><span class="door door-l"></span><span class="door door-r"></span></span><span class="shout" aria-hidden="true">${gag.shout}</span></span>`;
+  const spotlight = showSpotlight ? `<div class="reveal-spotlight ${spotlightCorrect ? 'reveal-spotlight--correct' : 'reveal-spotlight--wrong'}" role="status"><span class="spotlight-eyebrow">${escapeHtml(String(gag.label || '').toUpperCase())}</span><strong>${spotlightCorrect ? 'Look at these geniuses!' : `Oh no... ${'ABCD'[lastVerdictIndex]} was a trap!`}</strong><span class="spotlight-copy">${spotlightCorrect ? 'Correctly chosen by:' : `Chosen by ${spotlightVoters.length === 1 ? 'this brave soul' : 'these brave souls'}:`}</span><span class="spotlight-names">${shownVoters.map(victimCard).join('')}${extraVoters > 0 ? `<span class="victims-more">+${extraVoters} more</span>` : ''}</span><span class="spotlight-punchline">${escapeHtml(state.revealLine || '')}</span></div>` : '';
   const countdown = state.autoNextAt ? Math.max(0, Math.ceil((state.autoNextAt - Date.now()) / 1000)) : 4;
   const gameWillEnd = state.roundNumber >= state.totalRounds || state.players.every(player => !player.alive);
 
@@ -312,7 +316,7 @@ function renderGameover(state) {
 function render(state) {
   setConnection(state.connection);
   const revealKey = state.phase === 'reveal'
-    ? `${state.roundNumber}-${state.revealComplete}-${[...state.revealedIndices].join('')}-${[...state.revealVerdicts].join('')}-${state.revealLastVerdictIndex}-${state.revealGag}`
+    ? `${state.roundNumber}-${state.revealComplete}-${[...state.revealedIndices].join('')}-${[...state.revealVerdicts].join('')}-${state.revealLastVerdictIndex}-${state.revealGag}-${JSON.stringify(state.revealVariant)}-${state.revealLine}`
     : '';
   const key = state.phase === 'reveal' ? `reveal-${revealKey}` : `${state.phase}-${state.roundNumber}-${state.lobbyStage}`;
 
