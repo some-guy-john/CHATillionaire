@@ -112,12 +112,31 @@ function hostPlayerUrl(state) {
 
 function renderJoinQr(state) {
   const canvas = document.getElementById('join-qr');
-  if (!canvas || !window.QRCode) return;
-  QRCode.toCanvas(canvas, state.joinUrl, {
-    width: 156,
-    margin: 1,
-    color: { dark: '#29233d', light: '#fffaf0' }
-  }).catch(() => {});
+  const status = document.getElementById('qr-status');
+  if (!canvas) return;
+  const showFailure = () => {
+    canvas.hidden = true;
+    if (status) {
+      status.textContent = 'QR unavailable. Use the link below.';
+      status.hidden = false;
+    }
+  };
+  if (!window.QRCode) {
+    showFailure();
+    return;
+  }
+  canvas.hidden = false;
+  try {
+    QRCode.toCanvas(canvas, state.joinUrl, {
+      width: 156,
+      margin: 1,
+      color: { dark: '#29233d', light: '#fffaf0' }
+    }).then(() => {
+      if (status) status.hidden = true;
+    }).catch(showFailure);
+  } catch (error) {
+    showFailure();
+  }
 }
 
 function renderSetup(state) {
@@ -190,7 +209,7 @@ function renderLobby(state) {
     <h1>${countdown ? 'The countdown is on!' : 'Send in the players!'}</h1>
     <p class="small" id="lobby-copy" style="margin:0 0 22px;">${lobbyText}</p>
     <div class="share-card">
-      <div class="share-heading"><span><span class="share-label">Player join link</span><strong>Scan or share this with chat</strong></span><canvas id="join-qr" width="156" height="156" aria-label="QR code for the player join link"></canvas></div>
+      <div class="share-heading"><span><span class="share-label">Player join link</span><strong>Scan or share this with chat</strong></span><span class="qr-wrap"><canvas id="join-qr" width="156" height="156" aria-label="QR code for the player join link"></canvas><span id="qr-status" class="qr-status" role="status" hidden></span></span></div>
       <div class="share-controls"><input id="join-link" type="text" readonly value="${escapeHtml(state.joinUrl)}"><button id="copy-link">Copy link</button></div>
       <span id="copy-status" class="muted" role="status"></span>
       <strong>Room code: ${escapeHtml(state.roomCode)}</strong>
